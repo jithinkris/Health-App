@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "543013705253",
+    "project_id": "ai-healthcare-f7eca",
+    "storage_bucket": "ai-healthcare-f7eca.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:543013705253:android:f4fd35321c9dbb77a251cc",
+        "android_client_info": {
+          "package_name": "ai.health123"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "543013705253-i35d9ipst9b40sc4c4g50a86v4emvlci.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA5Jb63RV-pP8V93Xw2ABDf5e_vYyuuo0s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "543013705253-19vpah72vebr2hasbpuurc3506q0kbvc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

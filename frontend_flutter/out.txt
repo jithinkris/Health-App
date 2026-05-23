@@ -1,0 +1,95 @@
+Analyzing frontend_flutter...                                   
+
+warning • The declaration '<unnamed>' isn't referenced • lib/screens/dashboard_screen.dart:20:7 • unused_element
+  error • Missing concrete implementation of 'abstract class State<T extends StatefulWidget> with Diagnosticable.build' • lib/screens/dashboard_screen.dart:20:7 • non_abstract_class_inherits_abstract_member
+  error • The await expression can only be used in an async function • lib/screens/dashboard_screen.dart:91:20 • await_in_wrong_context
+  error • Expected a class member • lib/screens/dashboard_screen.dart:92:5 • expected_class_member
+  error • Expected an identifier • lib/screens/dashboard_screen.dart:92:8 • missing_identifier
+  error • Expected to find ')' • lib/screens/dashboard_screen.dart:92:16 • expected_token
+  error • The await expression can only be used in an async function • lib/screens/dashboard_screen.dart:98:20 • await_in_wrong_context
+  error • The await expression can only be used in an async function • lib/screens/dashboard_screen.dart:116:18 • await_in_wrong_context
+  error • Expected a class member • lib/screens/dashboard_screen.dart:117:5 • expected_class_member
+  error • Expected an identifier • lib/screens/dashboard_screen.dart:117:8 • missing_identifier
+  error • Expected to find ')' • lib/screens/dashboard_screen.dart:117:14 • expected_token
+   info • The member 'setState' overrides an inherited member but isn't annotated with '@override' • lib/screens/dashboard_screen.dart:121:5 • annotate_overrides
+   info • Use the generic function type syntax to declare the parameter '' • lib/screens/dashboard_screen.dart:121:14 • use_function_type_syntax_for_parameters
+  error • Expected an identifier • lib/screens/dashboard_screen.dart:121:14 • missing_identifier
+  error • Expected to find ')' • lib/screens/dashboard_screen.dart:121:17 • expected_token
+  error • The function 'setState' isn't defined • lib/screens/dashboard_screen.dart:125:5 • undefined_function
+  error • Undefined name '_isLoading' • lib/screens/dashboard_screen.dart:125:20 • undefined_identifier
+  error • The function '_fetchData' isn't defined • lib/screens/dashboard_screen.dart:135:11 • undefined_function
+  error • Undefined name 'mounted' • lib/screens/dashboard_screen.dart:149:19 • undefined_identifier
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check • lib/screens/dashboard_screen.dart:151:19 • use_build_context_synchronously
+  error • Undefined name '_isLoading' • lib/screens/dashboard_screen.dart:166:13 • undefined_identifier
+  error • Undefined name '_currentIndex' • lib/screens/dashboard_screen.dart:167:16 • undefined_identifier
+  error • Undefined name '_currentIndex' • lib/screens/dashboard_screen.dart:176:23 • undefined_identifier
+  error • The function 'setState' isn't defined • lib/screens/dashboard_screen.dart:177:23 • undefined_function
+  error • Undefined name '_currentIndex' • lib/screens/dashboard_screen.dart:177:38 • undefined_identifier
+  error • Undefined name '_currentIndex' • lib/screens/dashboard_screen.dart:188:29 • undefined_identifier
+  error • Undefined name '_currentIndex' • lib/screens/dashboard_screen.dart:197:13 • undefined_identifier
+  error • Undefined name '_userName' • lib/screens/dashboard_screen.dart:198:31 • undefined_identifier
+  error • The function 'setState' isn't defined • lib/screens/dashboard_screen.dart:224:25 • undefined_function
+  error • Undefined name '_isLoading' • lib/screens/dashboard_screen.dart:224:40 • undefined_identifier
+  error • The function 'setState' isn't defined • lib/screens/dashboard_screen.dart:226:25 • undefined_function
+  error • Undefined name '_isLoading' • lib/screens/dashboard_screen.dart:226:40 • undefined_identifier
+  error • Undefined name 'context' • lib/screens/dashboard_screen.dart:228:48 • undefined_identifier
+  error • The function 'setState' isn't defined • lib/screens/dashboard_screen.dart:245:23 • undefined_function
+  error • Undefined name '_isLoading' • lib/screens/dashboard_screen.dart:245:38 • undefined_identifier
+  error • The function 'setState' isn't defined • lib/screens/dashboard_screen.dart:249:23 • undefined_function
+  error • Undefined name '_isLoading' • lib/screens/dashboard_screen.dart:249:38 • undefined_identifier
+  error • Undefined name 'context' • lib/screens/dashboard_screen.dart:251:46 • undefined_identifier
+  error • The function '_fetchData' isn't defined • lib/screens/dashboard_screen.dart:252:25 • undefined_function
+  error • Undefined name 'context' • lib/screens/dashboard_screen.dart:271:34 • undefined_identifier
+  error • Undefined name 'context' • lib/screens/dashboard_screen.dart:283:54 • undefined_identifier
+  error • Undefined name '_heartRate' • lib/screens/dashboard_screen.dart:287:64 • undefined_identifier
+  error • Undefined name '_steps' • lib/screens/dashboard_screen.dart:289:59 • undefined_identifier
+  error • Undefined name '_sleep' • lib/screens/dashboard_screen.dart:295:59 • undefined_identifier
+  error • Undefined name '_spo2' • lib/screens/dashboard_screen.dart:297:58 • undefined_identifier
+  error • Undefined name 'context' • lib/screens/dashboard_screen.dart:301:52 • undefined_identifier
+  error • Undefined name '_userName' • lib/screens/dashboard_screen.dart:326:20 • undefined_identifier
+  error • Undefined name '_userProfile' • lib/screens/dashboard_screen.dart:328:20 • undefined_identifier
+  error • Undefined name '_userProfile' • lib/screens/dashboard_screen.dart:333:44 • undefined_identifier
+  error • Undefined name '_userProfile' • lib/screens/dashboard_screen.dart:334:50 • undefined_identifier
+  error • Undefined name '_userProfile' • lib/screens/dashboard_screen.dart:335:50 • undefined_identifier
+  error • Undefined name 'context' • lib/screens/dashboard_screen.dart:342:30 • undefined_identifier
+  error • Undefined name '_userProfile' • lib/screens/dashboard_screen.dart:343:74 • undefined_identifier
+  error • The function '_fetchData' isn't defined • lib/screens/dashboard_screen.dart:346:21 • undefined_function
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/dashboard_screen.dart:380:63 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/dashboard_screen.dart:387:41 • deprecated_member_use
+  error • Undefined name '_riskLevel' • lib/screens/dashboard_screen.dart:403:33 • undefined_identifier
+  error • Undefined name '_recommendation' • lib/screens/dashboard_screen.dart:407:22 • undefined_identifier
+  error • Undefined name '_riskPercentage' • lib/screens/dashboard_screen.dart:418:26 • undefined_identifier
+  error • Undefined name '_riskPercentage' • lib/screens/dashboard_screen.dart:425:20 • undefined_identifier
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/dashboard_screen.dart:442:52 • deprecated_member_use
+  error • Undefined name 'context' • lib/screens/dashboard_screen.dart:500:60 • undefined_identifier
+  error • Undefined name '_medicines' • lib/screens/dashboard_screen.dart:515:20 • undefined_identifier
+  error • Undefined name '_medicines' • lib/screens/dashboard_screen.dart:519:32 • undefined_identifier
+  error • Undefined name '_medicines' • lib/screens/dashboard_screen.dart:521:35 • undefined_identifier
+  error • The function 'setState' isn't defined • lib/screens/dashboard_screen.dart:543:27 • undefined_function
+  error • Undefined name '_medicines' • lib/screens/dashboard_screen.dart:544:29 • undefined_identifier
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/dashboard_screen.dart:555:63 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/dashboard_screen.dart:555:103 • deprecated_member_use
+  error • The function 'setState' isn't defined • lib/screens/dashboard_screen.dart:583:39 • undefined_function
+  error • The function '_fetchData' isn't defined • lib/screens/dashboard_screen.dart:587:39 • undefined_function
+  error • Undefined name 'context' • lib/screens/dashboard_screen.dart:626:16 • undefined_identifier
+  error • The function 'setState' isn't defined • lib/screens/dashboard_screen.dart:726:21 • undefined_function
+  error • Undefined name '_isLoading' • lib/screens/dashboard_screen.dart:726:36 • undefined_identifier
+  error • The function '_fetchData' isn't defined • lib/screens/dashboard_screen.dart:748:29 • undefined_function
+  error • Expected a method, getter, setter or operator declaration • lib/screens/dashboard_screen.dart:760:1 • expected_executable
+warning • The value of the field '_predictionResult' isn't used • lib/screens/disease_prediction_screen.dart:14:25 • unused_field
+   info • Don't use 'BuildContext's across async gaps • lib/screens/disease_prediction_screen.dart:46:28 • use_build_context_synchronously
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/login_screen.dart:51:63 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/login_screen.dart:88:47 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/login_screen.dart:104:47 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/register_screen.dart:68:65 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/register_screen.dart:137:33 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/welcome_screen.dart:18:63 • deprecated_member_use
+   info • Type could be non-nullable • lib/services/auth_service.dart:21:34 • unnecessary_nullable_for_final_variable_declarations
+   info • Uses 'await' on an instance of 'GoogleSignInAuthentication', which is not a subtype of 'Future' • lib/services/auth_service.dart:24:47 • await_only_futures
+warning • Unused import: 'package:intl/intl.dart' • lib/services/notification_service.dart:4:8 • unused_import
+   info • Don't invoke 'print' in production code • lib/services/notification_service.dart:83:9 • avoid_print
+   info • Parameter 'key' could be a super parameter • lib/theme.dart:68:9 • use_super_parameters
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/theme.dart:83:29 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/theme.dart:88:41 • deprecated_member_use
+  error • The name 'MyApp' isn't a class • test/widget_test.dart:16:35 • creation_with_non_type
+
