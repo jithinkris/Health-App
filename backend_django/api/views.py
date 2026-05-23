@@ -11,6 +11,10 @@ from .serializers import (UserSerializer, HealthDataSerializer, RiskPredictionSe
 from rest_framework.parsers import MultiPartParser, FormParser
 from .chatbot import build_system_prompt, get_groq_response
 from django.conf import settings
+from django.http import JsonResponse
+
+def health(request):
+    return JsonResponse({"status": "ok"})
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
