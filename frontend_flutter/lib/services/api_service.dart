@@ -7,8 +7,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 class ApiService {
   static String get baseUrl {
     if (kIsWeb) return 'http://127.0.0.1:8000/api';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8000/api';
-    return 'http://127.0.0.1:8000/api';
+    if (Platform.isAndroid) return 'http://192.168.1.11:8000/api';
+    return 'http://192.168.1.11:8000/api';
   }
 
   static Future<Map<String, String>> _headers() async {
