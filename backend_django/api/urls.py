@@ -1,12 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import (RegisterView, HealthDataViewSet, RiskPredictionViewSet, 
-                    SleepScheduleViewSet, HydrationLogViewSet, 
-                    MedicineReminderViewSet, NotificationViewSet, PredictRiskView, CurrentUserView, GoogleLoginView,
-                    UploadMedicalReportView, SyncSmartwatchDataView, DiseasePredictionView,
-                    ChatView, ChatHistoryView)
-
+from .views import (RegisterView, HealthDataViewSet, RiskPredictionViewSet, SleepScheduleViewSet, HydrationLogViewSet, MedicineReminderViewSet, NotificationViewSet, PredictRiskView, CurrentUserView, GoogleLoginView, UploadMedicalReportView, SyncSmartwatchDataView, DiseasePredictionView, ChatView, ChatHistoryView, health)
 
 router = DefaultRouter()
 router.register(r'health', HealthDataViewSet, basename='health')
@@ -29,5 +24,6 @@ urlpatterns = [
     # Chatbot endpoints
     path('chat/', ChatView.as_view(), name='chat'),
     path('chat/history/', ChatHistoryView.as_view(), name='chat_history'),
+    path('health/', health, name='health'),
     path('', include(router.urls)),
 ]
