@@ -10,10 +10,23 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+# pyrefly: ignore [missing-import]
+
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load .env variables manually into os.environ
+dotenv_path = BASE_DIR / '.env'
+if dotenv_path.exists():
+    with open(dotenv_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, val = line.split('=', 1)
+                os.environ[key.strip()] = val.strip()
 
 
 # Quick-start development settings - unsuitable for production
@@ -135,5 +148,11 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
-
+import os
 CORS_ALLOW_ALL_ORIGINS = True
+
+# ── Groq LLM Chatbot Configuration ────────────────────────────────────────────
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+
+GROQ_MODEL = 'llama-3.1-8b-instant'
+CHAT_HISTORY_LIMIT = 20  # Number of past messages included in each LLM context window

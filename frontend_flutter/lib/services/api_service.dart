@@ -263,5 +263,51 @@ class ApiService {
       return null;
     }
   }
+
+  // ── Chatbot Methods ────────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> sendChatMessage(String message) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/chat/'),
+        headers: await _headers(),
+        body: jsonEncode({'message': message}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<List<dynamic>?> getChatHistory() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/chat/history/'),
+        headers: await _headers(),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['messages'] as List<dynamic>?;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<bool> clearChatHistory() async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/chat/history/'),
+        headers: await _headers(),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
 }
 

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:smart_health/screens/disease_prediction_screen.dart';
 import 'package:smart_health/services/health_sync_service.dart';
+import 'package:smart_health/screens/chatbot_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final bool showProfileSetup;
@@ -193,6 +194,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _buildAnalyticsTab(),
           _buildMedicineTab(),
           _buildProfileTab(),
+          const ChatbotScreen(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -206,6 +208,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Analytics'),
           BottomNavigationBarItem(icon: Icon(Icons.local_hospital), label: 'Medicines'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline),
+            activeIcon: Icon(Icons.chat_bubble),
+            label: 'AI Chat',
+          ),
         ],
       ),
       floatingActionButton: _currentIndex == 0 ? FloatingActionButton(
@@ -213,6 +220,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: AppTheme.primaryBlue,
         child: const Icon(Icons.sync, color: Colors.white),
       ) : null,
+      // Hide the default appBar when chatbot tab is active (it has its own AppBar)
     );
   }
 
@@ -222,6 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 1: return 'Health Analytics';
       case 2: return 'Medicine Reminders';
       case 3: return 'Your Profile';
+      case 4: return 'AI Health Assistant';
       default: return 'Smart Health AI';
     }
   }

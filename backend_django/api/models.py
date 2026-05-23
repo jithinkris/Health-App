@@ -65,3 +65,27 @@ class MedicalReport(models.Model):
     image = models.ImageField(upload_to='medical_reports/')
     extracted_text = models.TextField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+class ChatSession(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='chat_session')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"ChatSession({self.user.username})"
+
+class ChatMessage(models.Model):
+    ROLE_CHOICES = [
+        ('user', 'User'),
+        ('assistant', 'Assistant'),
+    ]
+    session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name='messages')
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"[{self.role}] {self.content[:50]}"

@@ -4,10 +4,13 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 import os
 import joblib
-from .models import User, HealthData, RiskPrediction, SleepSchedule, HydrationLog, MedicineReminder, Notification, MedicalReport
+from .models import User, HealthData, RiskPrediction, SleepSchedule, HydrationLog, MedicineReminder, Notification, MedicalReport, ChatSession, ChatMessage
 from .serializers import (UserSerializer, HealthDataSerializer, RiskPredictionSerializer, SleepScheduleSerializer, 
-                          HydrationLogSerializer, MedicineReminderSerializer, NotificationSerializer, MedicalReportSerializer)
+                          HydrationLogSerializer, MedicineReminderSerializer, NotificationSerializer, MedicalReportSerializer,
+                          ChatMessageSerializer)
 from rest_framework.parsers import MultiPartParser, FormParser
+from .chatbot import build_system_prompt, get_groq_response
+from django.conf import settings
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -290,3 +293,83 @@ class DiseasePredictionView(APIView):
             "prediction_id": prediction.id
         })
 
+
+class ChatView(APIView):
+    """
+    POST /api/chat/  — Send a message and receive an AI health assistant reply.
+    Request body: { "message": "..." }
+    Response: { "reply": "...", "session_id": int, "history_count": int }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user_message = request.data.get('message', '').strip()
+        if not user_message:
+            return Response({'error': 'Message cannot be empty.'}, status=400)
+
+        user = request.user
+
+        # ── 1. Fetch health context from DB ──────────────────────────────────
+        latest_health = HealthData.objects.filter(user=user).values().last()
+        risk_predictions = RiskPrediction.objects.filter(user=user).order_by('-prediction_date')[:3]
+        medicines = MedicineReminder.objects.filter(user=user)
+
+        # ── 2. Build personalised system prompt ───────────────────────────────
+        system_prompt = build_system_prompt(user, latest_health, risk_predictions, medicines)
+
+        # ── 3. Get or create the user's chat session ──────────────────────────
+        session, _ = ChatSession.objects.get_or_create(user=user)
+
+        # ── 4. Load recent conversation history (context window) ───────────────
+        history_limit = getattr(settings, 'CHAT_HISTORY_LIMIT', 20)
+        recent_messages = list(
+            session.messages
+            .order_by('-created_at')[:history_limit]
+        )
+        recent_messages.reverse()  # Chronological order for the LLM
+
+        message_history = [
+            {"role": msg.role, "content": msg.content}
+            for msg in recent_messages
+        ]
+
+        # ── 5. Call Groq API ──────────────────────────────────────────────────
+        ai_reply = get_groq_response(system_prompt, message_history, user_message)
+
+        # ── 6. Persist both messages to DB ────────────────────────────────────
+        ChatMessage.objects.create(session=session, role='user', content=user_message)
+        ChatMessage.objects.create(session=session, role='assistant', content=ai_reply)
+
+        return Response({
+            'reply': ai_reply,
+            'session_id': session.id,
+            'history_count': session.messages.count(),
+        })
+
+
+class ChatHistoryView(APIView):
+    """
+    GET    /api/chat/history/  — Returns the last 50 chat messages for the user.
+    DELETE /api/chat/history/  — Clears all chat history for the user.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            session = ChatSession.objects.get(user=request.user)
+            messages = session.messages.order_by('created_at')
+            serializer = ChatMessageSerializer(messages, many=True)
+            return Response({
+                'session_id': session.id,
+                'messages': serializer.data,
+            })
+        except ChatSession.DoesNotExist:
+            return Response({'session_id': None, 'messages': []})
+
+    def delete(self, request):
+        try:
+            session = ChatSession.objects.get(user=request.user)
+            deleted_count, _ = session.messages.all().delete()
+            return Response({'message': f'Chat history cleared. {deleted_count} messages deleted.'})
+        except ChatSession.DoesNotExist:
+            return Response({'message': 'No chat history found.'})

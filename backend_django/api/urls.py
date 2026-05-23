@@ -4,7 +4,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (RegisterView, HealthDataViewSet, RiskPredictionViewSet, 
                     SleepScheduleViewSet, HydrationLogViewSet, 
                     MedicineReminderViewSet, NotificationViewSet, PredictRiskView, CurrentUserView, GoogleLoginView,
-                    UploadMedicalReportView, SyncSmartwatchDataView, DiseasePredictionView)
+                    UploadMedicalReportView, SyncSmartwatchDataView, DiseasePredictionView,
+                    ChatView, ChatHistoryView)
 
 
 router = DefaultRouter()
@@ -25,5 +26,8 @@ urlpatterns = [
     path('upload-report/', UploadMedicalReportView.as_view(), name='upload_report'),
     path('sync-smartwatch/', SyncSmartwatchDataView.as_view(), name='sync_smartwatch'),
     path('predict-disease/', DiseasePredictionView.as_view(), name='predict_disease'),
+    # Chatbot endpoints
+    path('chat/', ChatView.as_view(), name='chat'),
+    path('chat/history/', ChatHistoryView.as_view(), name='chat_history'),
     path('', include(router.urls)),
 ]
