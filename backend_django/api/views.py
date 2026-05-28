@@ -263,9 +263,17 @@ class UploadMedicalReportView(APIView):
 
             report.extracted_text = extracted_text
             report.extracted_metrics = _extract_key_metrics(extracted_text)
-            report.save(update_fields=["extracted_text", "extracted_metrics"])
+            try:
+                report.save(update_fields=["extracted_text", "extracted_metrics"])
+            except Exception:
+                # Backward compatibility if production DB has not migrated yet.
+                report.extracted_metrics = None
+                report.save(update_fields=["extracted_text"])
 
-            return Response(MedicalReportSerializer(report).data, status=201)
+            response_data = MedicalReportSerializer(report).data
+            if report.extracted_metrics is None and report.extracted_text:
+                response_data["extracted_metrics"] = _extract_key_metrics(report.extracted_text)
+            return Response(response_data, status=201)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 
