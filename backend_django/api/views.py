@@ -12,7 +12,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from .chatbot import build_system_prompt, get_groq_response
 from django.conf import settings
 from django.http import JsonResponse
-import re
+from .report_extraction import build_stored_text, extract_key_metrics
 
 
 def _extract_text_from_pdf(file_path):
@@ -43,40 +43,6 @@ def _extract_text_from_image(file_path):
     except Exception:
         return ""
 
-
-def _extract_key_metrics(text):
-    if not text:
-        return {}
-
-    patterns = {
-        "heart_rate": r"(?:heart\s*rate|hr)\s*[:\-]?\s*(\d{2,3})\s*(?:bpm)?",
-        "spo2": r"(?:spo2|oxygen\s*saturation|o2\s*sat)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)\s*%?",
-        "hemoglobin": r"(?:hemoglobin|hb)\s*[:\-]?\s*(\d{1,2}(?:\.\d+)?)",
-        "glucose": r"(?:glucose|blood\s*sugar|fbs|rbs)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)",
-        "cholesterol_total": r"(?:total\s*cholesterol|cholesterol)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)",
-        "triglycerides": r"(?:triglycerides)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)",
-    }
-
-    metrics = {}
-    for key, pattern in patterns.items():
-        match = re.search(pattern, text, flags=re.IGNORECASE)
-        if match:
-            value = match.group(1)
-            try:
-                metrics[key] = float(value) if "." in value else int(value)
-            except Exception:
-                metrics[key] = value
-
-    bp_match = re.search(
-        r"(?:blood\s*pressure|bp)\s*[:\-]?\s*(\d{2,3})\s*/\s*(\d{2,3})",
-        text,
-        flags=re.IGNORECASE,
-    )
-    if bp_match:
-        metrics["blood_pressure_systolic"] = int(bp_match.group(1))
-        metrics["blood_pressure_diastolic"] = int(bp_match.group(2))
-
-    return metrics
 
 def health(request):
     return JsonResponse({"status": "ok"})
@@ -261,19 +227,11 @@ class UploadMedicalReportView(APIView):
             if not extracted_text:
                 extracted_text = "Could not extract readable text from the report."
 
-            report.extracted_text = extracted_text
-            report.extracted_metrics = _extract_key_metrics(extracted_text)
-            try:
-                report.save(update_fields=["extracted_text", "extracted_metrics"])
-            except Exception:
-                # Backward compatibility if production DB has not migrated yet.
-                report.extracted_metrics = None
-                report.save(update_fields=["extracted_text"])
+            metrics = extract_key_metrics(extracted_text)
+            report.extracted_text = build_stored_text(extracted_text, metrics)
+            report.save(update_fields=["extracted_text"])
 
-            response_data = MedicalReportSerializer(report).data
-            if report.extracted_metrics is None and report.extracted_text:
-                response_data["extracted_metrics"] = _extract_key_metrics(report.extracted_text)
-            return Response(response_data, status=201)
+            return Response(MedicalReportSerializer(report).data, status=201)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 

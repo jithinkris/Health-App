@@ -64,7 +64,6 @@ class MedicalReport(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='medical_reports')
     image = models.FileField(upload_to='medical_reports/')
     extracted_text = models.TextField(null=True, blank=True)
-    extracted_metrics = models.JSONField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
 class ChatSession(models.Model):

@@ -66,11 +66,21 @@ class NotificationSerializer(serializers.ModelSerializer):
 class MedicalReportSerializer(serializers.ModelSerializer):
     # API accepts multipart key "file"; DB column remains "image".
     file = serializers.FileField(source='image')
+    extracted_text = serializers.SerializerMethodField()
+    extracted_metrics = serializers.SerializerMethodField()
 
     class Meta:
         model = MedicalReport
         fields = ('id', 'user', 'file', 'extracted_text', 'extracted_metrics', 'uploaded_at')
-        read_only_fields = ('user', 'uploaded_at', 'extracted_text', 'extracted_metrics')
+        read_only_fields = ('user', 'uploaded_at')
+
+    def get_extracted_text(self, obj):
+        from .report_extraction import display_text
+        return display_text(obj.extracted_text)
+
+    def get_extracted_metrics(self, obj):
+        from .report_extraction import metrics_from_stored_text
+        return metrics_from_stored_text(obj.extracted_text)
 
 class ChatMessageSerializer(serializers.ModelSerializer):
     class Meta:
