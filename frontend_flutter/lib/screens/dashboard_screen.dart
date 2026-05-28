@@ -6,7 +6,7 @@ import 'package:smart_health/screens/welcome_screen.dart';
 import 'package:smart_health/screens/profile_edit_dialog.dart';
 import 'package:smart_health/services/notification_service.dart';
 import 'package:intl/intl.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:smart_health/screens/disease_prediction_screen.dart';
 import 'package:smart_health/services/health_sync_service.dart';
 import 'package:smart_health/screens/chatbot_screen.dart';
@@ -250,14 +250,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () async {
-                      final ImagePicker picker = ImagePicker();
-                      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-                      if (image != null) {
+                      final picked = await FilePicker.platform.pickFiles(
+                        type: FileType.custom,
+                        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp'],
+                      );
+                      final selectedPath = picked?.files.single.path;
+                      if (selectedPath != null) {
                         setState(() => _isLoading = true);
                         try {
-                          final result = await ApiService.uploadMedicalReport(image.path);
+                          final result = await ApiService.uploadMedicalReport(selectedPath);
                           if (result != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report Uploaded & OCR Processed!')));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Report uploaded and extracted successfully.')),
+                            );
                             await _fetchData();
                           }
                         } catch (e) {
@@ -271,7 +276,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       }
                     },
                     icon: const Icon(Icons.upload_file),
-                    label: const Text('Upload Report'),
+                    label: const Text('Upload PDF/Image'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryBlue,
                       foregroundColor: Colors.white,
@@ -620,8 +625,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           final date = report['uploaded_at'] != null 
                             ? DateFormat('MMM dd, yyyy - hh:mm a').format(DateTime.parse(report['uploaded_at']).toLocal())
                             : 'Unknown Date';
-                          final text = report['extracted_text'] ?? 'No text extracted';
-                          
+                          final text = report['extracted_text'] ?? 'No summary available';
+                          final rawMetrics = report['extracted_metrics'];
+                          final metrics = rawMetrics is Map
+                              ? Map<String, dynamic>.from(rawMetrics)
+                              : <String, dynamic>{};
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: GlassCard(
@@ -637,8 +646,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ],
                                   ),
                                   const Divider(height: 24),
-                                  const Text('AI Extracted Data:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                  const Text('AI Summary:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                                   const SizedBox(height: 8),
+                                  if (metrics.isNotEmpty) ...[
+                                    const Text('Detected Metrics:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: metrics.entries
+                                          .map(
+                                            (entry) => Chip(
+                                              label: Text(
+                                                '${entry.key.replaceAll('_', ' ').toUpperCase()}: ${entry.value}',
+                                              ),
+                                              backgroundColor: Colors.blue.shade50,
+                                            ),
+                                          )
+                                          .toList(),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(

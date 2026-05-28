@@ -75,12 +75,11 @@ class MedicalReportSerializer(serializers.ModelSerializer):
         read_only_fields = ('user', 'uploaded_at')
 
     def get_extracted_text(self, obj):
-        from .report_extraction import display_text
-        return display_text(obj.extracted_text)
+        return obj.extracted_text or ""
 
     def get_extracted_metrics(self, obj):
-        from .report_extraction import metrics_from_stored_text
-        return metrics_from_stored_text(obj.extracted_text)
+        from .report_extraction import metrics_from_report
+        return metrics_from_report(obj)
 
 class ChatMessageSerializer(serializers.ModelSerializer):
     class Meta:

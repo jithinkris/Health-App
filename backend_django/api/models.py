@@ -64,6 +64,16 @@ class MedicalReport(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='medical_reports')
     image = models.FileField(upload_to='medical_reports/')
     extracted_text = models.TextField(null=True, blank=True)
+    heart_rate = models.IntegerField(null=True, blank=True)
+    blood_pressure_systolic = models.IntegerField(null=True, blank=True)
+    blood_pressure_diastolic = models.IntegerField(null=True, blank=True)
+    spo2 = models.FloatField(null=True, blank=True)
+    hemoglobin = models.FloatField(null=True, blank=True)
+    glucose = models.FloatField(null=True, blank=True)
+    cholesterol_total = models.FloatField(null=True, blank=True)
+    hdl = models.FloatField(null=True, blank=True)
+    ldl = models.FloatField(null=True, blank=True)
+    triglycerides = models.FloatField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
 class ChatSession(models.Model):

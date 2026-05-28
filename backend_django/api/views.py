@@ -12,7 +12,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from .chatbot import build_system_prompt, get_groq_response
 from django.conf import settings
 from django.http import JsonResponse
-from .report_extraction import build_stored_text, extract_key_metrics
+from .report_extraction import apply_metrics_to_report, report_update_fields
+from .report_llm import parse_medical_report_with_groq
 
 
 def _extract_text_from_pdf(file_path):
@@ -227,9 +228,14 @@ class UploadMedicalReportView(APIView):
             if not extracted_text:
                 extracted_text = "Could not extract readable text from the report."
 
-            metrics = extract_key_metrics(extracted_text)
-            report.extracted_text = build_stored_text(extracted_text, metrics)
-            report.save(update_fields=["extracted_text"])
+            parsed = parse_medical_report_with_groq(extracted_text)
+            report.extracted_text = parsed.get("summary") or "Report processed successfully."
+            apply_metrics_to_report(report, parsed.get("metrics") or {})
+            try:
+                report.save(update_fields=report_update_fields())
+            except Exception:
+                # Keep upload working even if metric columns are not migrated yet.
+                report.save(update_fields=["extracted_text"])
 
             return Response(MedicalReportSerializer(report).data, status=201)
         except Exception as e:

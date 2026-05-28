@@ -3,6 +3,19 @@ import re
 
 METRICS_MARKER = "\n__EXTRACTED_METRICS__\n"
 
+METRIC_FIELDS = (
+    "heart_rate",
+    "blood_pressure_systolic",
+    "blood_pressure_diastolic",
+    "spo2",
+    "hemoglobin",
+    "glucose",
+    "cholesterol_total",
+    "hdl",
+    "ldl",
+    "triglycerides",
+)
+
 
 def extract_key_metrics(text):
     if not text:
@@ -15,6 +28,8 @@ def extract_key_metrics(text):
         "glucose": r"(?:glucose|blood\s*sugar|fbs|rbs)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)",
         "cholesterol_total": r"(?:total\s*cholesterol|cholesterol)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)",
         "triglycerides": r"(?:triglycerides)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)",
+        "hdl": r"(?:hdl)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)",
+        "ldl": r"(?:ldl)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)",
     }
 
     metrics = {}
@@ -39,19 +54,18 @@ def extract_key_metrics(text):
     return metrics
 
 
-def display_text(stored_text):
-    if not stored_text:
-        return ""
-    if METRICS_MARKER in stored_text:
-        return stored_text.split(METRICS_MARKER, 1)[0].strip()
-    return stored_text
+def metrics_from_report(report):
+    metrics = {}
+    for field in METRIC_FIELDS:
+        value = getattr(report, field, None)
+        if value is not None:
+            metrics[field] = value
 
+    if metrics:
+        return metrics
 
-def metrics_from_stored_text(stored_text):
-    if not stored_text:
-        return {}
-
-    if METRICS_MARKER in stored_text:
+    stored_text = getattr(report, "extracted_text", None)
+    if stored_text and METRICS_MARKER in stored_text:
         _, metrics_json = stored_text.split(METRICS_MARKER, 1)
         try:
             parsed = json.loads(metrics_json.strip())
@@ -60,11 +74,13 @@ def metrics_from_stored_text(stored_text):
         except json.JSONDecodeError:
             pass
 
-    return extract_key_metrics(display_text(stored_text))
+    return extract_key_metrics(stored_text or "")
 
 
-def build_stored_text(extracted_text, metrics):
-    text = (extracted_text or "").strip()
-    if metrics:
-        return text + METRICS_MARKER + json.dumps(metrics)
-    return text
+def apply_metrics_to_report(report, metrics):
+    for field in METRIC_FIELDS:
+        setattr(report, field, metrics.get(field))
+
+
+def report_update_fields():
+    return ["extracted_text", *METRIC_FIELDS]
