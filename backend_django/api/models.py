@@ -62,7 +62,10 @@ class Notification(models.Model):
 
 class MedicalReport(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='medical_reports')
-    file = models.FileField(upload_to='medical_reports/')  # accepts images, PDFs, docs
+    file = models.FileField(
+        upload_to='medical_reports/',
+        db_column='image',
+    )  # maps to existing DB column for backward compatibility
     extracted_text = models.TextField(null=True, blank=True)
     extracted_metrics = models.JSONField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
