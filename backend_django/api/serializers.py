@@ -64,10 +64,13 @@ class NotificationSerializer(serializers.ModelSerializer):
         read_only_fields = ('user', 'created_at')
 
 class MedicalReportSerializer(serializers.ModelSerializer):
+    # API accepts multipart key "file"; DB column remains "image".
+    file = serializers.FileField(source='image')
+
     class Meta:
         model = MedicalReport
-        fields = '__all__'
-        read_only_fields = ('user', 'uploaded_at', 'extracted_text')
+        fields = ('id', 'user', 'file', 'extracted_text', 'extracted_metrics', 'uploaded_at')
+        read_only_fields = ('user', 'uploaded_at', 'extracted_text', 'extracted_metrics')
 
 class ChatMessageSerializer(serializers.ModelSerializer):
     class Meta:

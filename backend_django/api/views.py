@@ -250,11 +250,11 @@ class UploadMedicalReportView(APIView):
             report = file_serializer.save(user=request.user)
             extracted_text = ""
             try:
-                file_name = (report.file.name or "").lower()
+                file_name = (report.image.name or "").lower()
                 if file_name.endswith(".pdf"):
-                    extracted_text = _extract_text_from_pdf(report.file.path)
+                    extracted_text = _extract_text_from_pdf(report.image.path)
                 else:
-                    extracted_text = _extract_text_from_image(report.file.path)
+                    extracted_text = _extract_text_from_image(report.image.path)
             except Exception:
                 extracted_text = ""
 
