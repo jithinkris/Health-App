@@ -30,11 +30,27 @@ class HealthSyncService {
       final now = DateTime.now();
       final yesterday = now.subtract(const Duration(days: 1));
 
-      List<HealthDataPoint> healthData = await Health().getHealthDataFromTypes(
-        startTime: yesterday,
-        endTime: now,
-        types: types,
-      );
+      List<HealthDataPoint> healthData = [];
+      for (var type in types) {
+        try {
+          print('DEBUG: Fetching type: $type');
+          final points = await Health().getHealthDataFromTypes(
+            startTime: yesterday,
+            endTime: now,
+            types: [type],
+          ).timeout(
+            const Duration(seconds: 4),
+            onTimeout: () {
+              print('DEBUG: Timeout fetching type: $type (taking longer than 4s)');
+              return [];
+            },
+          );
+          print('DEBUG: Successfully fetched ${points.length} points for $type');
+          healthData.addAll(points);
+        } catch (e) {
+          print('DEBUG: Error fetching type $type: $e');
+        }
+      }
 
       // Aggregate data
       int totalSteps = 0;

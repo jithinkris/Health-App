@@ -254,11 +254,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
                       if (image != null) {
                         setState(() => _isLoading = true);
-                        final result = await ApiService.uploadMedicalReport(image.path);
-                        setState(() => _isLoading = false);
-                        if (result != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report Uploaded & OCR Processed!')));
-                          await _fetchData();
+                        try {
+                          final result = await ApiService.uploadMedicalReport(image.path);
+                          if (result != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report Uploaded & OCR Processed!')));
+                            await _fetchData();
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Upload Error: ${e.toString()}'),
+                            backgroundColor: Colors.red,
+                          ));
+                        } finally {
+                          setState(() => _isLoading = false);
                         }
                       }
                     },

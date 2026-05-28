@@ -21,9 +21,8 @@ class _LoginScreenState extends State<LoginScreen> {
     
     bool success = await AuthService.login(_emailController.text, _passwordController.text);
     
-    setState(() => _isLoading = false);
-    
     if (mounted) {
+      setState(() => _isLoading = false);
       if (success) {
         Navigator.pushAndRemoveUntil(
           context,

@@ -34,9 +34,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       weight: _weightCtr.text,
     );
 
-    setState(() => _isLoading = false);
-    
     if (mounted) {
+      setState(() => _isLoading = false);
       if (success) {
         // After successful registration, log them in automatically to store the JWT token
         await AuthService.login(_emailCtr.text, _passCtr.text);

@@ -6,9 +6,9 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 class ApiService {
   static String get baseUrl {
-    if (kIsWeb) return 'https://health-app-g368.onrender.com/api';
-    if (Platform.isAndroid) return 'https://health-app-g368.onrender.com/api';
-    return 'https://health-app-g368.onrender.com/api';
+    if (kIsWeb) return 'https://health-app-g40d.onrender.com/api';
+    if (Platform.isAndroid) return 'https://health-app-g40d.onrender.com/api';
+    return 'https://health-app-g40d.onrender.com/api';
   }
 
   static Future<Map<String, String>> _headers() async {
@@ -181,24 +181,32 @@ class ApiService {
 
   static Future<Map<String, dynamic>?> uploadMedicalReport(String imagePath) async {
     try {
+      final url = '$baseUrl/upload-report/';
+      print('DEBUG: POST $url');
+      print('DEBUG: Image Path: $imagePath');
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('access') ?? '';
       
-      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload-report/'));
+      var request = http.MultipartRequest('POST', Uri.parse(url));
       request.headers.addAll({
         'Authorization': 'Bearer $token',
       });
       request.files.add(await http.MultipartFile.fromPath('image', imagePath));
       
+      print('DEBUG: Sending multipart request...');
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
+      
+      print('DEBUG: Upload report status: ${response.statusCode}');
+      print('DEBUG: Upload report body: ${response.body}');
       
       if (response.statusCode == 201) {
         return jsonDecode(response.body);
       }
-      return null;
-    } catch (_) {
-      return null;
+      throw Exception('Server returned ${response.statusCode}: ${response.body}');
+    } catch (e) {
+      print('DEBUG: Upload report exception: $e');
+      rethrow;
     }
   }
 
@@ -219,32 +227,47 @@ class ApiService {
 
   static Future<List<dynamic>?> getAllHealthData() async {
     try {
+      final url = '$baseUrl/health/';
+      print('DEBUG: GET $url');
+      final headers = await _headers();
+      print('DEBUG: Headers: $headers');
       final response = await http.get(
-        Uri.parse('$baseUrl/health/'),
-        headers: await _headers(),
+        Uri.parse(url),
+        headers: headers,
       );
+      print('DEBUG: GET health status: ${response.statusCode}');
+      print('DEBUG: GET health body: ${response.body}');
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
       return null;
-    } catch (_) {
+    } catch (e) {
+      print('DEBUG: GET health exception: $e');
       return null;
     }
   }
 
   static Future<Map<String, dynamic>?> syncSmartwatchData(Map<String, dynamic> data) async {
     try {
+      final url = '$baseUrl/sync-smartwatch/';
+      print('DEBUG: POST $url');
+      print('DEBUG: POST payload: $data');
+      final headers = await _headers();
+      print('DEBUG: Headers: $headers');
       final response = await http.post(
-        Uri.parse('$baseUrl/sync-smartwatch/'),
-        headers: await _headers(),
+        Uri.parse(url),
+        headers: headers,
         body: jsonEncode(data),
       );
-      if (response.statusCode == 200) {
+      print('DEBUG: POST sync status: ${response.statusCode}');
+      print('DEBUG: POST sync body: ${response.body}');
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(response.body);
       }
-      return null;
-    } catch (_) {
-      return null;
+      throw Exception('Server returned ${response.statusCode}: ${response.body}');
+    } catch (e) {
+      print('DEBUG: POST sync exception: $e');
+      rethrow;
     }
   }
 

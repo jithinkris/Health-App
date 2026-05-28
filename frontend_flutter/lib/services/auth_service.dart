@@ -5,12 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'package:smart_health/services/api_service.dart';
+
 class AuthService {
-  static String get baseUrl {
-    if (kIsWeb) return 'http://127.0.0.1:8000/api';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8000/api';
-    return 'http://127.0.0.1:8000/api';
-  }
+  static String get baseUrl => ApiService.baseUrl;
 
   static Future<String?> googleLogin() async {
     try {
