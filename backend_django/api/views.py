@@ -12,6 +12,71 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from .chatbot import build_system_prompt, get_groq_response
 from django.conf import settings
 from django.http import JsonResponse
+import re
+
+
+def _extract_text_from_pdf(file_path):
+    try:
+        from pypdf import PdfReader
+    except Exception:
+        return ""
+
+    try:
+        reader = PdfReader(file_path)
+        chunks = []
+        for page in reader.pages:
+            chunks.append(page.extract_text() or "")
+        return "\n".join(chunks).strip()
+    except Exception:
+        return ""
+
+
+def _extract_text_from_image(file_path):
+    try:
+        import pytesseract
+        from PIL import Image
+    except Exception:
+        return ""
+
+    try:
+        return pytesseract.image_to_string(Image.open(file_path)).strip()
+    except Exception:
+        return ""
+
+
+def _extract_key_metrics(text):
+    if not text:
+        return {}
+
+    patterns = {
+        "heart_rate": r"(?:heart\s*rate|hr)\s*[:\-]?\s*(\d{2,3})\s*(?:bpm)?",
+        "spo2": r"(?:spo2|oxygen\s*saturation|o2\s*sat)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)\s*%?",
+        "hemoglobin": r"(?:hemoglobin|hb)\s*[:\-]?\s*(\d{1,2}(?:\.\d+)?)",
+        "glucose": r"(?:glucose|blood\s*sugar|fbs|rbs)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)",
+        "cholesterol_total": r"(?:total\s*cholesterol|cholesterol)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)",
+        "triglycerides": r"(?:triglycerides)\s*[:\-]?\s*(\d{2,3}(?:\.\d+)?)",
+    }
+
+    metrics = {}
+    for key, pattern in patterns.items():
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            value = match.group(1)
+            try:
+                metrics[key] = float(value) if "." in value else int(value)
+            except Exception:
+                metrics[key] = value
+
+    bp_match = re.search(
+        r"(?:blood\s*pressure|bp)\s*[:\-]?\s*(\d{2,3})\s*/\s*(\d{2,3})",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if bp_match:
+        metrics["blood_pressure_systolic"] = int(bp_match.group(1))
+        metrics["blood_pressure_diastolic"] = int(bp_match.group(2))
+
+    return metrics
 
 def health(request):
     return JsonResponse({"status": "ok"})
@@ -180,16 +245,22 @@ class UploadMedicalReportView(APIView):
         file_serializer = MedicalReportSerializer(data=request.data)
         if file_serializer.is_valid():
             report = file_serializer.save(user=request.user)
-            # OCR logic placeholder
+            extracted_text = ""
             try:
-                import pytesseract
-                from PIL import Image
-                text = pytesseract.image_to_string(Image.open(report.image.path))
-                report.extracted_text = text
-                report.save()
-            except Exception as e:
-                report.extracted_text = "Mock OCR Text: Blood Pressure: 120/80, Heart Rate: 75 bpm"
-                report.save()
+                file_name = (report.file.name or "").lower()
+                if file_name.endswith(".pdf"):
+                    extracted_text = _extract_text_from_pdf(report.file.path)
+                else:
+                    extracted_text = _extract_text_from_image(report.file.path)
+            except Exception:
+                extracted_text = ""
+
+            if not extracted_text:
+                extracted_text = "Could not extract readable text from the report."
+
+            report.extracted_text = extracted_text
+            report.extracted_metrics = _extract_key_metrics(extracted_text)
+            report.save(update_fields=["extracted_text", "extracted_metrics"])
                 
             return Response(MedicalReportSerializer(report).data, status=201)
         else:
