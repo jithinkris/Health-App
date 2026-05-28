@@ -242,8 +242,11 @@ class UploadMedicalReportView(APIView):
         return Response(serializer.data, status=200)
 
     def post(self, request, *args, **kwargs):
-        file_serializer = MedicalReportSerializer(data=request.data)
-        if file_serializer.is_valid():
+        try:
+            file_serializer = MedicalReportSerializer(data=request.data)
+            if not file_serializer.is_valid():
+                return Response(file_serializer.errors, status=400)
+
             report = file_serializer.save(user=request.user)
             extracted_text = ""
             try:
@@ -261,10 +264,10 @@ class UploadMedicalReportView(APIView):
             report.extracted_text = extracted_text
             report.extracted_metrics = _extract_key_metrics(extracted_text)
             report.save(update_fields=["extracted_text", "extracted_metrics"])
-                
+
             return Response(MedicalReportSerializer(report).data, status=201)
-        else:
-            return Response(file_serializer.errors, status=400)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
 
 class SyncSmartwatchDataView(APIView):
     permission_classes = [IsAuthenticated]
