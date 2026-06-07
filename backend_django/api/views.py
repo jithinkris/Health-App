@@ -12,37 +12,12 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from .chatbot import build_system_prompt, get_groq_response
 from django.conf import settings
 from django.http import JsonResponse
-from .report_extraction import apply_metrics_to_report, report_update_fields
+from .report_extraction import (
+    apply_metrics_to_report,
+    extract_text_from_upload,
+    report_update_fields,
+)
 from .report_llm import parse_medical_report_with_groq
-
-
-def _extract_text_from_pdf(file_path):
-    try:
-        from pypdf import PdfReader
-    except Exception:
-        return ""
-
-    try:
-        reader = PdfReader(file_path)
-        chunks = []
-        for page in reader.pages:
-            chunks.append(page.extract_text() or "")
-        return "\n".join(chunks).strip()
-    except Exception:
-        return ""
-
-
-def _extract_text_from_image(file_path):
-    try:
-        import pytesseract
-        from PIL import Image
-    except Exception:
-        return ""
-
-    try:
-        return pytesseract.image_to_string(Image.open(file_path)).strip()
-    except Exception:
-        return ""
 
 
 def health(request):
@@ -205,39 +180,37 @@ class UploadMedicalReportView(APIView):
 
     def get(self, request, *args, **kwargs):
         reports = MedicalReport.objects.filter(user=request.user).order_by('-uploaded_at')
-        serializer = MedicalReportSerializer(reports, many=True)
+        serializer = MedicalReportSerializer(reports, many=True, context={'request': request})
         return Response(serializer.data, status=200)
 
     def post(self, request, *args, **kwargs):
         try:
-            file_serializer = MedicalReportSerializer(data=request.data)
-            if not file_serializer.is_valid():
-                return Response(file_serializer.errors, status=400)
+            uploaded_file = request.FILES.get('file') or request.FILES.get('image')
+            if not uploaded_file:
+                return Response({'file': ['No file was submitted.']}, status=400)
 
-            report = file_serializer.save(user=request.user)
-            extracted_text = ""
+            report = MedicalReport.objects.create(user=request.user, image=uploaded_file)
+
+            raw_text = ""
             try:
-                file_name = (report.image.name or "").lower()
-                if file_name.endswith(".pdf"):
-                    extracted_text = _extract_text_from_pdf(report.image.path)
-                else:
-                    extracted_text = _extract_text_from_image(report.image.path)
+                raw_text = extract_text_from_upload(report.image.path)
             except Exception:
-                extracted_text = ""
+                raw_text = ""
 
-            if not extracted_text:
-                extracted_text = "Could not extract readable text from the report."
+            if not raw_text:
+                raw_text = "Could not extract readable text from the report."
 
-            parsed = parse_medical_report_with_groq(extracted_text)
+            parsed = parse_medical_report_with_groq(raw_text)
             report.extracted_text = parsed.get("summary") or "Report processed successfully."
             apply_metrics_to_report(report, parsed.get("metrics") or {})
+
             try:
                 report.save(update_fields=report_update_fields())
             except Exception:
-                # Keep upload working even if metric columns are not migrated yet.
                 report.save(update_fields=["extracted_text"])
 
-            return Response(MedicalReportSerializer(report).data, status=201)
+            serializer = MedicalReportSerializer(report, context={'request': request})
+            return Response(serializer.data, status=201)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 

@@ -169,4 +169,5 @@ CORS_ALLOW_ALL_ORIGINS = True
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 
 GROQ_MODEL = 'llama-3.1-8b-instant'
+GROQ_VISION_MODEL = os.environ.get('GROQ_VISION_MODEL', 'llama-3.2-11b-vision-preview')
 CHAT_HISTORY_LIMIT = 20  # Number of past messages included in each LLM context window

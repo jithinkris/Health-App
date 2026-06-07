@@ -224,6 +224,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  String _resolveFileUrl(String? path) {
+    if (path == null || path.isEmpty) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    // Remove '/api' from baseUrl and append path
+    final base = ApiService.baseUrl.replaceFirst('/api', '');
+    return '$base$path';
+  }
+
+  void _viewImage(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            InteractiveViewer(
+              panEnabled: true,
+              boundaryMargin: const EdgeInsets.all(20),
+              minScale: 0.5,
+              maxScale: 4,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.all(20),
+                      child: const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.broken_image, size: 60, color: Colors.red),
+                          SizedBox(height: 12),
+                          Text('Could not load image', style: TextStyle(color: Colors.black)),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.white, size: 30),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _getTitle() {
     switch (_currentIndex) {
       case 0: return 'Hello, $_userName';
@@ -630,6 +692,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           final metrics = rawMetrics is Map
                               ? Map<String, dynamic>.from(rawMetrics)
                               : <String, dynamic>{};
+                          final fileUrl = report['file'];
+                          final resolvedUrl = _resolveFileUrl(fileUrl);
+                          final isImage = fileUrl != null &&
+                              (fileUrl.toLowerCase().endsWith('.png') ||
+                                  fileUrl.toLowerCase().endsWith('.jpg') ||
+                                  fileUrl.toLowerCase().endsWith('.jpeg') ||
+                                  fileUrl.toLowerCase().endsWith('.webp'));
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
@@ -648,7 +717,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   const Divider(height: 24),
                                   const Text('AI Summary:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                                   const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(text, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                                  ),
                                   if (metrics.isNotEmpty) ...[
+                                    const SizedBox(height: 16),
                                     const Text('Detected Metrics:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                                     const SizedBox(height: 8),
                                     Wrap(
@@ -665,16 +744,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           )
                                           .toList(),
                                     ),
-                                    const SizedBox(height: 12),
                                   ],
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(text, style: const TextStyle(fontSize: 13, color: Colors.black87)),
-                                  ),
+                                  if (fileUrl != null && fileUrl.isNotEmpty) ...[
+                                    const SizedBox(height: 16),
+                                    const Text('Report Document:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                    const SizedBox(height: 8),
+                                    if (isImage)
+                                      GestureDetector(
+                                        onTap: () => _viewImage(context, resolvedUrl),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Container(
+                                            width: double.infinity,
+                                            height: 150,
+                                            color: Colors.grey.shade200,
+                                            child: Image.network(
+                                              resolvedUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) => const Center(
+                                                child: Icon(Icons.image, size: 50, color: Colors.grey),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade50,
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: Colors.blue.shade100),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.insert_drive_file, color: Colors.blue),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                fileUrl.split('/').last,
+                                                style: const TextStyle(fontSize: 13, color: Colors.blue, fontWeight: FontWeight.bold),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
                                 ],
                               ),
                             ),

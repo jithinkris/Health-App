@@ -64,8 +64,7 @@ class NotificationSerializer(serializers.ModelSerializer):
         read_only_fields = ('user', 'created_at')
 
 class MedicalReportSerializer(serializers.ModelSerializer):
-    # API accepts multipart key "file"; DB column remains "image".
-    file = serializers.FileField(source='image')
+    file = serializers.SerializerMethodField()
     extracted_text = serializers.SerializerMethodField()
     extracted_metrics = serializers.SerializerMethodField()
 
@@ -73,6 +72,14 @@ class MedicalReportSerializer(serializers.ModelSerializer):
         model = MedicalReport
         fields = ('id', 'user', 'file', 'extracted_text', 'extracted_metrics', 'uploaded_at')
         read_only_fields = ('user', 'uploaded_at')
+
+    def get_file(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get('request')
+        if request is not None:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url
 
     def get_extracted_text(self, obj):
         return obj.extracted_text or ""

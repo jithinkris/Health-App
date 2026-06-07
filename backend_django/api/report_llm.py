@@ -7,12 +7,12 @@ from .report_extraction import METRIC_FIELDS, extract_key_metrics
 def _fallback_parse(raw_text):
     metrics = extract_key_metrics(raw_text)
     if metrics:
-        summary_lines = ["Key values identified from the report:"]
+        summary_lines = ["Lab report processed. Key findings:"]
         for key, value in metrics.items():
             summary_lines.append(f"- {key.replace('_', ' ').title()}: {value}")
         summary = "\n".join(summary_lines)
     else:
-        summary = "Report uploaded. No clear lab values were detected automatically."
+        summary = "Report uploaded successfully. No clear lab values were detected."
     return {"summary": summary, "metrics": metrics}
 
 
@@ -37,18 +37,18 @@ def _normalize_metrics(metrics):
 
 def parse_medical_report_with_groq(raw_text):
     raw_text = (raw_text or "").strip()
-    if not raw_text:
+    if not raw_text or raw_text == "Could not extract readable text from the report.":
         return _fallback_parse(raw_text)
 
     if not settings.GROQ_API_KEY:
         return _fallback_parse(raw_text)
 
     prompt = f"""You are a medical lab report parser.
-Read the OCR text and extract only values that are clearly present.
+Read the OCR text below and produce a clean patient-friendly summary.
 
 Return ONLY valid JSON in this exact shape:
 {{
-  "summary": "4-8 line patient-friendly summary of important findings",
+  "summary": "Short readable summary (4-8 lines). Mention only confirmed findings.",
   "metrics": {{
     "heart_rate": null,
     "blood_pressure_systolic": null,
@@ -64,10 +64,11 @@ Return ONLY valid JSON in this exact shape:
 }}
 
 Rules:
+- summary must NOT copy raw OCR text verbatim.
+- summary must be concise and human-readable.
 - Use null when a metric is missing or unclear.
 - Never invent values.
-- summary must be concise and readable (not raw OCR dump).
-- metrics values must be numbers only (no units in JSON values).
+- metrics values must be numbers only (no units).
 
 OCR TEXT:
 {raw_text[:12000]}

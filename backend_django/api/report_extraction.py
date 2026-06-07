@@ -1,5 +1,10 @@
+import base64
 import json
+import mimetypes
+import os
 import re
+
+from django.conf import settings
 
 METRICS_MARKER = "\n__EXTRACTED_METRICS__\n"
 
@@ -15,6 +20,96 @@ METRIC_FIELDS = (
     "ldl",
     "triglycerides",
 )
+
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
+PDF_EXTENSIONS = {".pdf"}
+
+
+def _extract_text_from_pdf(file_path):
+    try:
+        from pypdf import PdfReader
+    except Exception:
+        return ""
+
+    try:
+        reader = PdfReader(file_path)
+        chunks = []
+        for page in reader.pages:
+            chunks.append(page.extract_text() or "")
+        return "\n".join(chunks).strip()
+    except Exception:
+        return ""
+
+
+def _extract_text_from_image_ocr(file_path):
+    try:
+        import pytesseract
+        from PIL import Image
+    except Exception:
+        return ""
+
+    try:
+        return pytesseract.image_to_string(Image.open(file_path)).strip()
+    except Exception:
+        return ""
+
+
+def _extract_text_from_image_groq(file_path):
+    if not settings.GROQ_API_KEY:
+        return ""
+
+    mime_type = mimetypes.guess_type(file_path)[0] or "image/jpeg"
+    try:
+        with open(file_path, "rb") as image_file:
+            encoded = base64.b64encode(image_file.read()).decode("utf-8")
+    except Exception:
+        return ""
+
+    try:
+        from groq import Groq
+
+        client = Groq(api_key=settings.GROQ_API_KEY)
+        completion = client.chat.completions.create(
+            model=getattr(settings, "GROQ_VISION_MODEL", "llama-3.2-11b-vision-preview"),
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "Extract all readable text from this medical report image. "
+                                "Return plain text only, preserving values and labels."
+                            ),
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mime_type};base64,{encoded}"},
+                        },
+                    ],
+                }
+            ],
+            temperature=0.1,
+            max_tokens=2048,
+        )
+        return (completion.choices[0].message.content or "").strip()
+    except Exception:
+        return ""
+
+
+def extract_text_from_upload(file_path):
+    extension = os.path.splitext(file_path)[1].lower()
+
+    if extension in PDF_EXTENSIONS:
+        return _extract_text_from_pdf(file_path)
+
+    if extension in IMAGE_EXTENSIONS:
+        text = _extract_text_from_image_ocr(file_path)
+        if text:
+            return text
+        return _extract_text_from_image_groq(file_path)
+
+    return ""
 
 
 def extract_key_metrics(text):
@@ -74,12 +169,13 @@ def metrics_from_report(report):
         except json.JSONDecodeError:
             pass
 
-    return extract_key_metrics(stored_text or "")
+    return {}
 
 
 def apply_metrics_to_report(report, metrics):
     for field in METRIC_FIELDS:
-        setattr(report, field, metrics.get(field))
+        value = metrics.get(field) if metrics else None
+        setattr(report, field, value)
 
 
 def report_update_fields():

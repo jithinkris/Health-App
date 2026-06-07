@@ -179,11 +179,11 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>?> uploadMedicalReport(String imagePath) async {
+  static Future<Map<String, dynamic>?> uploadMedicalReport(String filePath) async {
     try {
       final url = '$baseUrl/upload-report/';
       print('DEBUG: POST $url');
-      print('DEBUG: Image Path: $imagePath');
+      print('DEBUG: File Path: $filePath');
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('access') ?? '';
       
@@ -191,7 +191,7 @@ class ApiService {
       request.headers.addAll({
         'Authorization': 'Bearer $token',
       });
-      request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
       
       print('DEBUG: Sending multipart request...');
       var streamedResponse = await request.send();
