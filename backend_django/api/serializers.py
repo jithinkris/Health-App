@@ -67,10 +67,14 @@ class MedicalReportSerializer(serializers.ModelSerializer):
     file = serializers.SerializerMethodField()
     extracted_text = serializers.SerializerMethodField()
     extracted_metrics = serializers.SerializerMethodField()
+    metrics_table = serializers.SerializerMethodField()
 
     class Meta:
         model = MedicalReport
-        fields = ('id', 'user', 'file', 'extracted_text', 'extracted_metrics', 'uploaded_at')
+        fields = (
+            'id', 'user', 'file', 'extracted_text', 'extracted_metrics',
+            'metrics_table', 'uploaded_at',
+        )
         read_only_fields = ('user', 'uploaded_at')
 
     def get_file(self, obj):
@@ -87,6 +91,10 @@ class MedicalReportSerializer(serializers.ModelSerializer):
     def get_extracted_metrics(self, obj):
         from .report_extraction import metrics_from_report
         return metrics_from_report(obj)
+
+    def get_metrics_table(self, obj):
+        from .report_extraction import metrics_table_rows
+        return metrics_table_rows(obj)
 
 class ChatMessageSerializer(serializers.ModelSerializer):
     class Meta:

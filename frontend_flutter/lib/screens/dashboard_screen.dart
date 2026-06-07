@@ -234,6 +234,119 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return '$base$path';
   }
 
+  List<Map<String, String>> _metricsTableRows(Map<String, dynamic> report) {
+    final rawTable = report['metrics_table'];
+    if (rawTable is List) {
+      return rawTable
+          .whereType<Map>()
+          .map((row) => {
+                'metric': row['metric']?.toString() ?? '',
+                'value': row['value']?.toString() ?? '',
+                'unit': row['unit']?.toString() ?? '',
+              })
+          .where((row) => row['metric']!.isNotEmpty)
+          .toList();
+    }
+
+    final rawMetrics = report['extracted_metrics'];
+    if (rawMetrics is! Map) return [];
+
+    final metrics = Map<String, dynamic>.from(rawMetrics);
+    final rows = <Map<String, String>>[];
+
+    final systolic = metrics['blood_pressure_systolic'];
+    final diastolic = metrics['blood_pressure_diastolic'];
+    if (systolic != null || diastolic != null) {
+      rows.add({
+        'metric': 'Blood Pressure',
+        'value': '${systolic ?? '--'}/${diastolic ?? '--'}',
+        'unit': 'mmHg',
+      });
+    }
+
+    const labels = {
+      'heart_rate': ('Heart Rate', 'bpm'),
+      'spo2': ('SpO2', '%'),
+      'hemoglobin': ('Hemoglobin', 'g/dL'),
+      'glucose': ('Glucose', 'mg/dL'),
+      'cholesterol_total': ('Total Cholesterol', 'mg/dL'),
+      'hdl': ('HDL', 'mg/dL'),
+      'ldl': ('LDL', 'mg/dL'),
+      'triglycerides': ('Triglycerides', 'mg/dL'),
+    };
+
+    for (final entry in labels.entries) {
+      final value = metrics[entry.key];
+      if (value == null) continue;
+      rows.add({
+        'metric': entry.value.$1,
+        'value': value.toString(),
+        'unit': entry.value.$2,
+      });
+    }
+
+    return rows;
+  }
+
+  Widget _buildMetricsTable(List<Map<String, String>> rows) {
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    Widget cell(String text, {bool isHeader = false}) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isHeader ? FontWeight.w700 : FontWeight.w500,
+            color: isHeader ? AppTheme.primaryBlue : Colors.black87,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Table(
+          columnWidths: const {
+            0: FlexColumnWidth(2.2),
+            1: FlexColumnWidth(1.3),
+            2: FlexColumnWidth(1),
+          },
+          border: TableBorder(
+            horizontalInside: BorderSide(color: Colors.grey.shade200),
+            verticalInside: BorderSide(color: Colors.grey.shade200),
+          ),
+          children: [
+            TableRow(
+              decoration: BoxDecoration(color: Colors.blue.shade50),
+              children: [
+                cell('Metric', isHeader: true),
+                cell('Value', isHeader: true),
+                cell('Unit', isHeader: true),
+              ],
+            ),
+            ...rows.map(
+              (row) => TableRow(
+                children: [
+                  cell(row['metric'] ?? ''),
+                  cell(row['value'] ?? ''),
+                  cell(row['unit'] ?? ''),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _viewImage(BuildContext context, String imageUrl) {
     showDialog(
       context: context,
@@ -688,10 +801,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ? DateFormat('MMM dd, yyyy - hh:mm a').format(DateTime.parse(report['uploaded_at']).toLocal())
                             : 'Unknown Date';
                           final text = report['extracted_text'] ?? 'No summary available';
-                          final rawMetrics = report['extracted_metrics'];
-                          final metrics = rawMetrics is Map
-                              ? Map<String, dynamic>.from(rawMetrics)
-                              : <String, dynamic>{};
+                          final tableRows = _metricsTableRows(report);
                           final fileUrl = report['file'];
                           final resolvedUrl = _resolveFileUrl(fileUrl);
                           final isImage = fileUrl != null &&
@@ -726,24 +836,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                     child: Text(text, style: const TextStyle(fontSize: 13, color: Colors.black87)),
                                   ),
-                                  if (metrics.isNotEmpty) ...[
+                                  if (tableRows.isNotEmpty) ...[
                                     const SizedBox(height: 16),
-                                    const Text('Detected Metrics:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                    const Text('Lab Metrics Table:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                                     const SizedBox(height: 8),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: metrics.entries
-                                          .map(
-                                            (entry) => Chip(
-                                              label: Text(
-                                                '${entry.key.replaceAll('_', ' ').toUpperCase()}: ${entry.value}',
-                                              ),
-                                              backgroundColor: Colors.blue.shade50,
-                                            ),
-                                          )
-                                          .toList(),
-                                    ),
+                                    _buildMetricsTable(tableRows),
                                   ],
                                   if (fileUrl != null && fileUrl.isNotEmpty) ...[
                                     const SizedBox(height: 16),

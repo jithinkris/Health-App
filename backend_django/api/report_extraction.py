@@ -180,3 +180,41 @@ def apply_metrics_to_report(report, metrics):
 
 def report_update_fields():
     return ["extracted_text", *METRIC_FIELDS]
+
+
+METRIC_DISPLAY = {
+    "heart_rate": ("Heart Rate", "bpm"),
+    "blood_pressure": ("Blood Pressure", "mmHg"),
+    "spo2": ("SpO2", "%"),
+    "hemoglobin": ("Hemoglobin", "g/dL"),
+    "glucose": ("Glucose", "mg/dL"),
+    "cholesterol_total": ("Total Cholesterol", "mg/dL"),
+    "hdl": ("HDL", "mg/dL"),
+    "ldl": ("LDL", "mg/dL"),
+    "triglycerides": ("Triglycerides", "mg/dL"),
+}
+
+
+def metrics_table_rows(report):
+    metrics = metrics_from_report(report)
+    if not metrics:
+        return []
+
+    rows = []
+    systolic = metrics.get("blood_pressure_systolic")
+    diastolic = metrics.get("blood_pressure_diastolic")
+    if systolic is not None or diastolic is not None:
+        label, unit = METRIC_DISPLAY["blood_pressure"]
+        value = f"{systolic or '--'}/{diastolic or '--'}"
+        rows.append({"metric": label, "value": value, "unit": unit})
+
+    for field in METRIC_FIELDS:
+        if field in ("blood_pressure_systolic", "blood_pressure_diastolic"):
+            continue
+        value = metrics.get(field)
+        if value is None:
+            continue
+        label, unit = METRIC_DISPLAY.get(field, (field.replace("_", " ").title(), ""))
+        rows.append({"metric": label, "value": value, "unit": unit})
+
+    return rows
