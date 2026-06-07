@@ -124,6 +124,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _riskPercentage = risk['risk_percentage'];
         List recs = risk['recommendation'];
         _recommendation = recs.isNotEmpty ? recs.first : "Keep maintaining a healthy lifestyle.";
+        
+        // Show alerts / warnings as snackbars on dashboard
+        if (mounted) {
+          for (var rec in recs) {
+            final recStr = rec.toString();
+            if (recStr.contains('hike detected') || 
+                recStr.contains('alert') || 
+                recStr.contains('spike detected') || 
+                recStr.contains('drop detected') ||
+                recStr.contains('detected:')) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          recStr,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Colors.redAccent,
+                  duration: const Duration(seconds: 5),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              );
+            }
+          }
+        }
       }
     }
     
