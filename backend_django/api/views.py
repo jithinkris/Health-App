@@ -13,10 +13,9 @@ from .chatbot import build_system_prompt, get_groq_response
 from django.conf import settings
 from django.http import JsonResponse
 from .report_extraction import (
-    apply_metrics_to_report,
-    build_stored_summary,
+    create_medical_report_record,
     extract_text_from_upload,
-    report_update_fields,
+    save_parsed_report_data,
 )
 from .report_llm import parse_medical_report_with_groq
 
@@ -190,9 +189,7 @@ class UploadMedicalReportView(APIView):
             if not uploaded_file:
                 return Response({'file': ['No file was submitted.']}, status=400)
 
-            # Save only base columns first so upload works before metric migrations run.
-            report = MedicalReport(user=request.user, image=uploaded_file)
-            report.save(update_fields=["user", "image"])
+            report = create_medical_report_record(request.user, uploaded_file)
 
             raw_text = ""
             try:
@@ -206,14 +203,7 @@ class UploadMedicalReportView(APIView):
             parsed = parse_medical_report_with_groq(raw_text)
             summary = parsed.get("summary") or "Report processed successfully."
             metrics = parsed.get("metrics") or {}
-
-            apply_metrics_to_report(report, metrics)
-            try:
-                report.extracted_text = summary
-                report.save(update_fields=report_update_fields())
-            except Exception:
-                report.extracted_text = build_stored_summary(summary, metrics)
-                report.save(update_fields=["extracted_text"])
+            save_parsed_report_data(report, summary, metrics)
 
             serializer = MedicalReportSerializer(report, context={'request': request})
             return Response(serializer.data, status=201)

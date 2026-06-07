@@ -5,6 +5,7 @@ import os
 import re
 
 from django.conf import settings
+from .models import MedicalReport
 
 METRICS_MARKER = "\n__EXTRACTED_METRICS__\n"
 
@@ -195,6 +196,100 @@ def apply_metrics_to_report(report, metrics):
 
 def report_update_fields():
     return ["extracted_text", *METRIC_FIELDS]
+
+
+def _table_columns(connection, table_name):
+    with connection.cursor() as cursor:
+        if connection.vendor == "sqlite":
+            cursor.execute(f"PRAGMA table_info({table_name})")
+            return {row[1] for row in cursor.fetchall()}
+        if connection.vendor == "postgresql":
+            cursor.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = %s
+                """,
+                [table_name],
+            )
+            return {row[0] for row in cursor.fetchall()}
+    return set()
+
+
+def create_medical_report_record(user, uploaded_file):
+    from django.db import connection
+    from django.utils import timezone
+
+    report = MedicalReport(user=user, image=uploaded_file)
+    try:
+        report.save(force_insert=True, update_fields=["user", "image"])
+        if report.pk:
+            return report
+    except Exception:
+        pass
+
+    table_name = MedicalReport._meta.db_table
+    columns = _table_columns(connection, table_name)
+    user_column = MedicalReport._meta.get_field("user").column
+    image_field = MedicalReport._meta.get_field("image")
+    uploaded_column = MedicalReport._meta.get_field("uploaded_at").column
+
+    temp = MedicalReport(user=user)
+    storage_path = image_field.generate_filename(temp, uploaded_file.name)
+    saved_path = image_field.storage.save(storage_path, uploaded_file)
+    now = timezone.now()
+
+    insert_columns = []
+    insert_values = []
+    if user_column in columns:
+        insert_columns.append(user_column)
+        insert_values.append(user.id)
+    if image_field.column in columns:
+        insert_columns.append(image_field.column)
+        insert_values.append(saved_path)
+    if uploaded_column in columns:
+        insert_columns.append(uploaded_column)
+        insert_values.append(now)
+
+    if not insert_columns:
+        raise ValueError("Medical report table has no writable columns.")
+
+    placeholders = ", ".join(["%s"] * len(insert_columns))
+    column_sql = ", ".join(insert_columns)
+
+    with connection.cursor() as cursor:
+        if connection.vendor == "postgresql":
+            cursor.execute(
+                f"INSERT INTO {table_name} ({column_sql}) VALUES ({placeholders}) RETURNING id",
+                insert_values,
+            )
+            report_id = cursor.fetchone()[0]
+        else:
+            cursor.execute(
+                f"INSERT INTO {table_name} ({column_sql}) VALUES ({placeholders})",
+                insert_values,
+            )
+            report_id = cursor.lastrowid
+
+    report = MedicalReport(pk=report_id, user=user, image=saved_path, uploaded_at=now)
+    report._state.adding = False
+    return report
+
+
+def save_parsed_report_data(report, summary, metrics):
+    apply_metrics_to_report(report, metrics)
+
+    if not report.pk:
+        report.extracted_text = build_stored_summary(summary, metrics)
+        report.save(force_insert=True, update_fields=["user", "image", "extracted_text"])
+        return
+
+    try:
+        report.extracted_text = summary
+        report.save(update_fields=report_update_fields())
+    except Exception:
+        report.extracted_text = build_stored_summary(summary, metrics)
+        report.save(update_fields=["extracted_text"])
 
 
 METRIC_DISPLAY = {
