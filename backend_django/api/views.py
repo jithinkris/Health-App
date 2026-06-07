@@ -14,6 +14,7 @@ from django.conf import settings
 from django.http import JsonResponse
 from .report_extraction import (
     apply_metrics_to_report,
+    build_stored_summary,
     extract_text_from_upload,
     report_update_fields,
 )
@@ -189,7 +190,9 @@ class UploadMedicalReportView(APIView):
             if not uploaded_file:
                 return Response({'file': ['No file was submitted.']}, status=400)
 
-            report = MedicalReport.objects.create(user=request.user, image=uploaded_file)
+            # Save only base columns first so upload works before metric migrations run.
+            report = MedicalReport(user=request.user, image=uploaded_file)
+            report.save(update_fields=["user", "image"])
 
             raw_text = ""
             try:
@@ -201,12 +204,15 @@ class UploadMedicalReportView(APIView):
                 raw_text = "Could not extract readable text from the report."
 
             parsed = parse_medical_report_with_groq(raw_text)
-            report.extracted_text = parsed.get("summary") or "Report processed successfully."
-            apply_metrics_to_report(report, parsed.get("metrics") or {})
+            summary = parsed.get("summary") or "Report processed successfully."
+            metrics = parsed.get("metrics") or {}
 
+            apply_metrics_to_report(report, metrics)
             try:
+                report.extracted_text = summary
                 report.save(update_fields=report_update_fields())
             except Exception:
+                report.extracted_text = build_stored_summary(summary, metrics)
                 report.save(update_fields=["extracted_text"])
 
             serializer = MedicalReportSerializer(report, context={'request': request})

@@ -86,7 +86,8 @@ class MedicalReportSerializer(serializers.ModelSerializer):
         return obj.image.url
 
     def get_extracted_text(self, obj):
-        return obj.extracted_text or ""
+        from .report_extraction import display_summary
+        return display_summary(obj.extracted_text)
 
     def get_extracted_metrics(self, obj):
         from .report_extraction import metrics_from_report

@@ -149,6 +149,21 @@ def extract_key_metrics(text):
     return metrics
 
 
+def display_summary(stored_text):
+    if not stored_text:
+        return ""
+    if METRICS_MARKER in stored_text:
+        return stored_text.split(METRICS_MARKER, 1)[0].strip()
+    return stored_text
+
+
+def build_stored_summary(summary, metrics):
+    text = (summary or "").strip()
+    if metrics:
+        return text + METRICS_MARKER + json.dumps(metrics)
+    return text
+
+
 def metrics_from_report(report):
     metrics = {}
     for field in METRIC_FIELDS:
