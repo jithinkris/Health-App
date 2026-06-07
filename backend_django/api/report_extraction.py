@@ -220,14 +220,6 @@ def create_medical_report_record(user, uploaded_file):
     from django.db import connection
     from django.utils import timezone
 
-    report = MedicalReport(user=user, image=uploaded_file)
-    try:
-        report.save(force_insert=True, update_fields=["user", "image"])
-        if report.pk:
-            return report
-    except Exception:
-        pass
-
     table_name = MedicalReport._meta.db_table
     columns = _table_columns(connection, table_name)
     user_column = MedicalReport._meta.get_field("user").column
@@ -271,25 +263,65 @@ def create_medical_report_record(user, uploaded_file):
             )
             report_id = cursor.lastrowid
 
-    report = MedicalReport(pk=report_id, user=user, image=saved_path, uploaded_at=now)
-    report._state.adding = False
+    if not report_id:
+        raise ValueError("Failed to create medical report record.")
+
+    report = MedicalReport.objects.get(pk=report_id)
     return report
 
 
-def save_parsed_report_data(report, summary, metrics):
-    apply_metrics_to_report(report, metrics)
+def _sql_update_report(report, summary, metrics):
+    from django.db import connection
 
+    table_name = MedicalReport._meta.db_table
+    columns = _table_columns(connection, table_name)
+    update_parts = []
+    update_values = []
+
+    if "extracted_text" in columns:
+        update_parts.append("extracted_text = %s")
+        update_values.append(summary)
+
+    for field in METRIC_FIELDS:
+        if field in columns:
+            update_parts.append(f"{field} = %s")
+            update_values.append(metrics.get(field))
+
+    if not update_parts:
+        return False
+
+    update_values.append(report.pk)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"UPDATE {table_name} SET {', '.join(update_parts)} WHERE id = %s",
+            update_values,
+        )
+    return True
+
+
+def save_parsed_report_data(report, summary, metrics):
     if not report.pk:
-        report.extracted_text = build_stored_summary(summary, metrics)
-        report.save(force_insert=True, update_fields=["user", "image", "extracted_text"])
+        raise ValueError("Report must have a primary key before saving parsed data.")
+
+    apply_metrics_to_report(report, metrics)
+    report.extracted_text = summary
+
+    if _sql_update_report(report, summary, metrics):
         return
 
-    try:
-        report.extracted_text = summary
-        report.save(update_fields=report_update_fields())
-    except Exception:
-        report.extracted_text = build_stored_summary(summary, metrics)
-        report.save(update_fields=["extracted_text"])
+    report.extracted_text = build_stored_summary(summary, metrics)
+    from django.db import connection
+
+    table_name = MedicalReport._meta.db_table
+    columns = _table_columns(connection, table_name)
+    if "extracted_text" not in columns:
+        return
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"UPDATE {table_name} SET extracted_text = %s WHERE id = %s",
+            [report.extracted_text, report.pk],
+        )
 
 
 METRIC_DISPLAY = {
