@@ -4,10 +4,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 import os
 import joblib
-from .models import User, HealthData, RiskPrediction, SleepSchedule, HydrationLog, MedicineReminder, Notification, MedicalReport, ChatSession, ChatMessage
+from .models import User, HealthData, RiskPrediction, SleepSchedule, HydrationLog, MedicineReminder, Notification, MedicalReport, ChatSession, ChatMessage, HealthSummary
 from .serializers import (UserSerializer, HealthDataSerializer, RiskPredictionSerializer, SleepScheduleSerializer, 
                           HydrationLogSerializer, MedicineReminderSerializer, NotificationSerializer, MedicalReportSerializer,
-                          ChatMessageSerializer)
+                          ChatMessageSerializer, HealthSummarySerializer)
 from rest_framework.parsers import MultiPartParser, FormParser
 from .chatbot import build_system_prompt, get_groq_response
 from django.conf import settings
@@ -18,6 +18,7 @@ from .report_extraction import (
     save_parsed_report_data,
 )
 from .report_llm import parse_medical_report_with_groq
+from .analysis import get_user_features, generate_overall_health_summary
 
 
 def health(request):
@@ -62,130 +63,7 @@ class NotificationViewSet(BaseUserViewSet):
     serializer_class = NotificationSerializer
 
 
-def get_user_features(user):
-    """
-    Calculates the 22-feature array for ML model inference and analyzes
-    smartwatch/medical data for hikes/spikes against the user's normal baseline.
-    """
-    # 1. Demographics
-    age = float(user.age) if user.age is not None else 30.0
-    gender_str = (user.gender or '').lower()
-    gender = 1.0 if 'male' in gender_str else (0.0 if 'female' in gender_str else 0.5)
-    
-    height = float(user.height) if user.height is not None else 170.0
-    weight = float(user.weight) if user.weight is not None else 70.0
-    bmi = weight / ((height / 100) ** 2) if (height and height > 0) else 24.2
-    
-    # 2. Historical baselines (fetch up to 30 past records)
-    health_history = HealthData.objects.filter(user=user).order_by('-synced_at')[:30]
-    report_history = MedicalReport.objects.filter(user=user).order_by('-uploaded_at')[:30]
-    
-    hr_vals = [h.heart_rate for h in health_history if h.heart_rate is not None]
-    spo2_vals = [h.spo2 for h in health_history if h.spo2 is not None]
-    bp_sys_vals = [r.blood_pressure_systolic for r in report_history if r.blood_pressure_systolic is not None]
-    glucose_vals = [r.glucose for r in report_history if r.glucose is not None]
-    
-    # Baseline averages (excluding latest if possible, to check for a new spike)
-    baseline_hr = sum(hr_vals[1:]) / len(hr_vals[1:]) if len(hr_vals) > 1 else (hr_vals[0] if hr_vals else 72.0)
-    baseline_spo2 = sum(spo2_vals[1:]) / len(spo2_vals[1:]) if len(spo2_vals) > 1 else (spo2_vals[0] if spo2_vals else 98.0)
-    baseline_bp_sys = sum(bp_sys_vals[1:]) / len(bp_sys_vals[1:]) if len(bp_sys_vals) > 1 else (bp_sys_vals[0] if bp_sys_vals else 120.0)
-    baseline_glucose = sum(glucose_vals[1:]) / len(glucose_vals[1:]) if len(glucose_vals) > 1 else (glucose_vals[0] if glucose_vals else 90.0)
-    
-    # 3. Current / Latest Metrics (with imputation if missing)
-    latest_health = health_history[0] if health_history.exists() else None
-    latest_report = report_history[0] if report_history.exists() else None
-    
-    current_hr = latest_health.heart_rate if (latest_health and latest_health.heart_rate is not None) else (latest_report.heart_rate if (latest_report and latest_report.heart_rate is not None) else None)
-    current_sleep = latest_health.sleep_hours if (latest_health and latest_health.sleep_hours is not None) else 7.5
-    current_steps = latest_health.steps if (latest_health and latest_health.steps is not None) else 6000
-    current_spo2 = latest_health.spo2 if (latest_health and latest_health.spo2 is not None) else (latest_report.spo2 if (latest_report and latest_report.spo2 is not None) else None)
-    current_calories = latest_health.calories if (latest_health and latest_health.calories is not None) else 2000
-    current_stress = latest_health.stress_level if (latest_health and latest_health.stress_level is not None) else 30.0
-    current_hrv = latest_health.hrv if (latest_health and latest_health.hrv is not None) else 50.0
-    current_snoring = latest_health.snoring_events if (latest_health and latest_health.snoring_events is not None) else 0
-    current_spo2_drops = latest_health.spo2_drops if (latest_health and latest_health.spo2_drops is not None) else 0
-    current_irregular_hr = latest_health.irregular_hr_events if (latest_health and latest_health.irregular_hr_events is not None) else 0
-    current_sitting = latest_health.sitting_time if (latest_health and latest_health.sitting_time is not None) else 6.0
-    
-    current_bp_sys = latest_report.blood_pressure_systolic if (latest_report and latest_report.blood_pressure_systolic is not None) else 120
-    current_bp_dia = latest_report.blood_pressure_diastolic if (latest_report and latest_report.blood_pressure_diastolic is not None) else 80
-    current_glucose = latest_report.glucose if (latest_report and latest_report.glucose is not None) else 90.0
-    current_hemoglobin = latest_report.hemoglobin if (latest_report and latest_report.hemoglobin is not None) else 14.0
-    current_chol_total = latest_report.cholesterol_total if (latest_report and latest_report.cholesterol_total is not None) else 180.0
-    current_hdl = latest_report.hdl if (latest_report and latest_report.hdl is not None) else 50.0
-    current_ldl = latest_report.ldl if (latest_report and latest_report.ldl is not None) else 100.0
-    current_trig = latest_report.triglycerides if (latest_report and latest_report.triglycerides is not None) else 130.0
-    
-    if current_hr is None: current_hr = 72.0
-    if current_spo2 is None: current_spo2 = 98.0
-    
-    # 4. Hike/Anomaly checks & Alert creation
-    hike_analysis = []
-    
-    # Heart rate hike
-    if latest_health and latest_health.heart_rate is not None:
-        val = latest_health.heart_rate
-        if val > 1.2 * baseline_hr and val > 85:
-            msg = f"Heart rate hike detected: Your current heart rate of {val} bpm is {int(((val - baseline_hr)/baseline_hr)*100)}% higher than your baseline average of {int(baseline_hr)} bpm."
-            hike_analysis.append(msg)
-            Notification.objects.get_or_create(user=user, title="Heart Rate Hike Alert", message=msg)
-        elif val > 100:
-            msg = f"High heart rate alert: Your heart rate of {val} bpm indicates tachycardia (>100 bpm)."
-            hike_analysis.append(msg)
-            Notification.objects.get_or_create(user=user, title="High Heart Rate Alert", message=msg)
-            
-    # SpO2 drops
-    if latest_health and latest_health.spo2 is not None:
-        val = latest_health.spo2
-        if val < 95.0:
-            msg = f"Low blood oxygen level (SpO2) alert: Your oxygen level is {val}%, which is below the normal range (95-100%)."
-            hike_analysis.append(msg)
-            Notification.objects.get_or_create(user=user, title="Low SpO2 Alert", message=msg)
-        elif val < baseline_spo2 - 3.0:
-            msg = f"Oxygen level drop detected: Your oxygen level dropped to {val}% (baseline average is {int(baseline_spo2)}%)."
-            hike_analysis.append(msg)
-            Notification.objects.get_or_create(user=user, title="SpO2 Drop Alert", message=msg)
-            
-    # Blood pressure hike
-    if latest_report and latest_report.blood_pressure_systolic is not None:
-        val = latest_report.blood_pressure_systolic
-        if val > 1.15 * baseline_bp_sys and val > 130:
-            msg = f"Elevated blood pressure detected: Current systolic BP is {val} mmHg, which is {int(((val - baseline_bp_sys)/baseline_bp_sys)*100)}% higher than your baseline average of {int(baseline_bp_sys)} mmHg."
-            hike_analysis.append(msg)
-            Notification.objects.get_or_create(user=user, title="High Blood Pressure Alert", message=msg)
-        elif val >= 140:
-            msg = f"Hypertension alert: Your systolic blood pressure is {val} mmHg (Stage 2 Hypertension threshold is 140)."
-            hike_analysis.append(msg)
-            Notification.objects.get_or_create(user=user, title="Hypertension Alert", message=msg)
-            
-    # Glucose hike
-    if latest_report and latest_report.glucose is not None:
-        val = latest_report.glucose
-        if val > 1.2 * baseline_glucose and val > 120:
-            msg = f"Glucose level spike detected: Current blood glucose is {val} mg/dL, which is {int(((val - baseline_glucose)/baseline_glucose)*100)}% higher than your baseline average of {int(baseline_glucose)} mg/dL."
-            hike_analysis.append(msg)
-            Notification.objects.get_or_create(user=user, title="Blood Glucose Spike Alert", message=msg)
-        elif val >= 140:
-            msg = f"Hyperglycemia alert: Your blood glucose level is {val} mg/dL, indicating elevated blood sugar."
-            hike_analysis.append(msg)
-            Notification.objects.get_or_create(user=user, title="Hyperglycemia Alert", message=msg)
-
-    # HRV drop
-    if latest_health and latest_health.hrv is not None:
-        val = latest_health.hrv
-        if val < 25.0:
-            msg = f"Low HRV alert: Your heart rate variability is low ({val} ms), which may indicate high physical or mental fatigue."
-            hike_analysis.append(msg)
-            Notification.objects.get_or_create(user=user, title="Low HRV Alert", message=msg)
-
-    features = [
-        age, gender, bmi, current_hr, current_sleep, current_steps, current_spo2,
-        current_calories, current_stress, current_hrv, current_snoring, current_spo2_drops,
-        current_irregular_hr, current_sitting, current_bp_sys, current_bp_dia,
-        current_glucose, current_hemoglobin, current_chol_total, current_hdl, current_ldl, current_trig
-    ]
-    
-    return features, hike_analysis
+# get_user_features is imported from .analysis
 
 
 class PredictRiskView(APIView):
@@ -331,6 +209,11 @@ class UploadMedicalReportView(APIView):
             metrics = parsed.get("metrics") or {}
             save_parsed_report_data(report, summary, metrics)
 
+            try:
+                generate_overall_health_summary(request.user)
+            except Exception as e:
+                print(f"Error generating overall health summary on report upload: {e}")
+
             serializer = MedicalReportSerializer(report, context={'request': request})
             return Response(serializer.data, status=201)
         except Exception as e:
@@ -358,6 +241,12 @@ class SyncSmartwatchDataView(APIView):
         health_data.sitting_time = data.get('sitting_time', health_data.sitting_time)
         
         health_data.save()
+
+        try:
+            generate_overall_health_summary(user)
+        except Exception as e:
+            print(f"Error generating overall health summary on smartwatch sync: {e}")
+
         return Response({"message": "Data synced successfully", "data": HealthDataSerializer(health_data).data})
 
 class DiseasePredictionView(APIView):
@@ -518,3 +407,54 @@ class ChatHistoryView(APIView):
             return Response({'message': f'Chat history cleared. {deleted_count} messages deleted.'})
         except ChatSession.DoesNotExist:
             return Response({'message': 'No chat history found.'})
+
+class OverallAnalyticsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        # Get or generate summary
+        summary_obj = HealthSummary.objects.filter(user=user).first()
+        if not summary_obj:
+            # Generate one on the fly if it doesn't exist yet
+            try:
+                generate_overall_health_summary(user)
+                summary_obj = HealthSummary.objects.filter(user=user).first()
+            except Exception as e:
+                print(f"Error generating summary on get: {e}")
+        
+        summary_text = summary_obj.summary_text if summary_obj else "Upload reports and sync smartwatch data to generate your overall health and disease summary."
+        updated_at = summary_obj.updated_at.isoformat() if summary_obj else None
+        
+        # Get latest risk prediction for each of the 12 diseases
+        diseases = [
+            'General', 'Hypertension Risk', 'Cardiovascular Risk', 'Sleep Apnea Risk',
+            'Stress / Anxiety', 'Arrhythmia / AFib Risk', 'Obesity Risk', 'Diabetes Risk',
+            'Fatigue Detection', 'Depression Risk', 'Fall Detection for Elderly', 'Sedentary Lifestyle Risk'
+        ]
+        
+        disease_risks = []
+        for disease_name in diseases:
+            latest_pred = RiskPrediction.objects.filter(user=user, disease_name=disease_name).order_by('-prediction_date').first()
+            if latest_pred:
+                disease_risks.append({
+                    'disease_name': disease_name,
+                    'risk_level': latest_pred.risk_level,
+                    'risk_percentage': round(latest_pred.risk_percentage, 2),
+                    'prediction_date': latest_pred.prediction_date.isoformat()
+                })
+            else:
+                # Provide a default LOW risk placeholder if no prediction exists yet
+                disease_risks.append({
+                    'disease_name': disease_name,
+                    'risk_level': 'LOW',
+                    'risk_percentage': 0.0,
+                    'prediction_date': None
+                })
+                
+        return Response({
+            'overall_summary': summary_text,
+            'updated_at': updated_at,
+            'disease_risks': disease_risks
+        })
+

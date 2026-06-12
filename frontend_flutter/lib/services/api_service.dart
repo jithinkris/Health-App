@@ -332,5 +332,21 @@ class ApiService {
       return false;
     }
   }
+
+  static Future<Map<String, dynamic>?> getOverallAnalytics() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/overall-analytics/'),
+        headers: await _headers(),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 }
+
 

@@ -99,3 +99,9 @@ class ChatMessage(models.Model):
 
     def __str__(self):
         return f"[{self.role}] {self.content[:50]}"
+
+class HealthSummary(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='health_summary')
+    summary_text = models.TextField()
+    updated_at = models.DateTimeField(auto_now=True)
+

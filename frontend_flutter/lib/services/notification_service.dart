@@ -76,7 +76,7 @@ class NotificationService {
           body: 'Dosage: $dosage',
           scheduledDate: tz.TZDateTime.from(scheduledDate, tz.local),
           notificationDetails: platformChannelSpecifics,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         );
       } catch (e) {
         // Fallback or ignore if permissions fail

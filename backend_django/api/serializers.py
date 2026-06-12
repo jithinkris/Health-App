@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, HealthData, RiskPrediction, SleepSchedule, HydrationLog, MedicineReminder, Notification, MedicalReport, ChatMessage
+from .models import User, HealthData, RiskPrediction, SleepSchedule, HydrationLog, MedicineReminder, Notification, MedicalReport, ChatMessage, HealthSummary
 
 class UserSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='first_name', required=False)
@@ -101,3 +101,10 @@ class ChatMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatMessage
         fields = ('id', 'role', 'content', 'created_at')
+
+class HealthSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthSummary
+        fields = ('id', 'user', 'summary_text', 'updated_at')
+        read_only_fields = ('user', 'updated_at')
+

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:smart_health/theme.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:smart_health/services/api_service.dart';
@@ -38,6 +39,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> _medicines = [];
   List<dynamic> _allHealthData = [];
   List<dynamic> _medicalReports = [];
+  
+  String _overallAiSummary = "Sync health data or upload a report to generate AI summary.";
+  List<dynamic> _diseaseRisks = [];
 
   @override
   void initState() {
@@ -173,6 +177,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final reports = await ApiService.getMedicalReports();
     if (reports != null) {
       _medicalReports = reports;
+    }
+
+    final overallAnalytics = await ApiService.getOverallAnalytics();
+    if (overallAnalytics != null) {
+      _overallAiSummary = overallAnalytics['overall_summary'] ?? 'No summary available.';
+      _diseaseRisks = overallAnalytics['disease_risks'] ?? [];
+    } else {
+      _overallAiSummary = 'Sync health data or upload a report to generate AI summary.';
+      _diseaseRisks = [];
     }
 
     setState(() => _isLoading = false);
@@ -754,7 +767,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // --- ANALYTICS TAB ---
   Widget _buildAnalyticsTab() {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(
         children: [
           Container(
@@ -764,6 +777,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               unselectedLabelColor: Colors.grey,
               indicatorColor: AppTheme.primaryBlue,
               tabs: [
+                Tab(icon: Icon(Icons.auto_awesome), text: 'AI Risk Analysis'),
                 Tab(icon: Icon(Icons.watch), text: 'Google Fit Syncs'),
                 Tab(icon: Icon(Icons.description), text: 'Medical Reports'),
               ],
@@ -772,7 +786,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Expanded(
             child: TabBarView(
               children: [
-                // Tab 1: Google Fit Data
+                // Tab 1: AI Risk Analysis
+                _buildAiRiskAnalysisView(),
+                // Tab 2: Google Fit Data
                 _allHealthData.isEmpty
                     ? const Center(child: Text('No synced data found.', style: TextStyle(color: Colors.grey)))
                     : ListView.builder(
@@ -930,6 +946,187 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiRiskAnalysisView() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Overall AI summary card
+          GlassCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.shade50,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.auto_awesome, color: Colors.purple, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'AI Health & Disease Summary',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 20, color: Colors.grey),
+                      tooltip: 'Copy to Clipboard',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: _overallAiSummary));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Summary copied to clipboard.')),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                Text(
+                  _overallAiSummary,
+                  style: const TextStyle(fontSize: 13, height: 1.5, color: Colors.black87),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Text(
+                    'Powered by Groq AI',
+                    style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Colors.grey.shade500),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          // 2. Risk profile title
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              'Disease Risk Profiles',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // 3. 12 disease risk cards
+          _diseaseRisks.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text('No risk predictions available. Sync health data to generate risks.', style: TextStyle(color: Colors.grey)),
+                  ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _diseaseRisks.length,
+                  itemBuilder: (context, index) {
+                    final item = _diseaseRisks[index];
+                    final String diseaseName = item['disease_name'] ?? 'Unknown';
+                    final String riskLevel = item['risk_level'] ?? 'LOW';
+                    final double riskPercentage = (item['risk_percentage'] is num) 
+                        ? (item['risk_percentage'] as num).toDouble() 
+                        : 0.0;
+                    
+                    Color statusColor;
+                    Color statusBgColor;
+                    IconData statusIcon;
+                    if (riskLevel == 'HIGH') {
+                      statusColor = Colors.red.shade700;
+                      statusBgColor = Colors.red.shade50;
+                      statusIcon = Icons.dangerous;
+                    } else if (riskLevel == 'MEDIUM') {
+                      statusColor = Colors.orange.shade700;
+                      statusBgColor = Colors.orange.shade50;
+                      statusIcon = Icons.warning;
+                    } else {
+                      statusColor = Colors.green.shade700;
+                      statusBgColor = Colors.green.shade50;
+                      statusIcon = Icons.check_circle;
+                    }
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: GlassCard(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    diseaseName,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: statusBgColor,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: statusColor.withOpacity(0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(statusIcon, color: statusColor, size: 14),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        riskLevel,
+                                        style: TextStyle(
+                                          color: statusColor, 
+                                          fontSize: 11, 
+                                          fontWeight: FontWeight.bold
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                      value: riskPercentage / 100,
+                                      backgroundColor: Colors.grey.shade100,
+                                      valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                                      minHeight: 6,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  '${riskPercentage.toInt()}%',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: statusColor),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
         ],
       ),
     );
