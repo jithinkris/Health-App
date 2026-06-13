@@ -179,12 +179,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _medicalReports = reports;
     }
 
-    final overallAnalytics = await ApiService.getOverallAnalytics();
-    if (overallAnalytics != null) {
-      _overallAiSummary = overallAnalytics['overall_summary'] ?? 'No summary available.';
-      _diseaseRisks = overallAnalytics['disease_risks'] ?? [];
-    } else {
-      _overallAiSummary = 'Sync health data or upload a report to generate AI summary.';
+    try {
+      print('DEBUG: Fetching overall analytics...');
+      final overallAnalytics = await ApiService.getOverallAnalytics();
+      print('DEBUG: Overall analytics result: ${overallAnalytics != null ? 'OK (${overallAnalytics.keys.toList()})' : 'NULL'}');
+      if (overallAnalytics != null) {
+        _overallAiSummary = overallAnalytics['overall_summary'] ?? 'No summary available.';
+        _diseaseRisks = overallAnalytics['disease_risks'] ?? [];
+        print('DEBUG: Loaded ${_diseaseRisks.length} disease risks');
+      } else {
+        _overallAiSummary = 'Sync health data or upload a report to generate AI summary.';
+        _diseaseRisks = [];
+      }
+    } catch (e) {
+      print('DEBUG: Error fetching analytics: $e');
+      _overallAiSummary = 'Error loading analytics. Please try again.';
       _diseaseRisks = [];
     }
 
@@ -964,24 +973,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.shade50,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.auto_awesome, color: Colors.purple, size: 24),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'AI Health & Disease Summary',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
-                        ),
-                      ],
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.auto_awesome, color: Colors.purple, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'AI Health & Disease Summary',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.copy, size: 20, color: Colors.grey),

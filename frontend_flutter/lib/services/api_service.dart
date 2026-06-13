@@ -335,15 +335,21 @@ class ApiService {
 
   static Future<Map<String, dynamic>?> getOverallAnalytics() async {
     try {
+      print('DEBUG: GET ${baseUrl}/overall-analytics/');
       final response = await http.get(
         Uri.parse('$baseUrl/overall-analytics/'),
         headers: await _headers(),
-      );
+      ).timeout(const Duration(seconds: 120)); // Longer timeout for ML + Groq processing
+      print('DEBUG: Overall analytics status: ${response.statusCode}');
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final decoded = jsonDecode(response.body);
+        print('DEBUG: Analytics response keys: ${decoded.keys.toList()}');
+        return decoded;
       }
+      print('DEBUG: Analytics error body: ${response.body}');
       return null;
-    } catch (_) {
+    } catch (e) {
+      print('DEBUG: Analytics exception: $e');
       return null;
     }
   }

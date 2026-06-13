@@ -83,7 +83,7 @@ class PredictRiskView(APIView):
         probs = model.predict_proba([features])[0]
         
         class_idx = list(model.classes_).index(risk_level)
-        risk_percentage = min(100.0, max(0.0, probs[class_idx] * 100))
+        risk_percentage = float(min(100.0, max(0.0, probs[class_idx] * 100)))
 
         recommendation = []
         if hike_analysis:
@@ -212,7 +212,9 @@ class UploadMedicalReportView(APIView):
             try:
                 generate_overall_health_summary(request.user)
             except Exception as e:
+                import traceback
                 print(f"Error generating overall health summary on report upload: {e}")
+                traceback.print_exc()
 
             serializer = MedicalReportSerializer(report, context={'request': request})
             return Response(serializer.data, status=201)
@@ -245,7 +247,9 @@ class SyncSmartwatchDataView(APIView):
         try:
             generate_overall_health_summary(user)
         except Exception as e:
+            import traceback
             print(f"Error generating overall health summary on smartwatch sync: {e}")
+            traceback.print_exc()
 
         return Response({"message": "Data synced successfully", "data": HealthDataSerializer(health_data).data})
 
@@ -289,7 +293,7 @@ class DiseasePredictionView(APIView):
             probs = model.predict_proba([features])[0]
             
             class_idx = list(model.classes_).index(risk_level)
-            risk_percentage = min(100.0, max(0.0, probs[class_idx] * 100))
+            risk_percentage = float(min(100.0, max(0.0, probs[class_idx] * 100)))
         except Exception as e:
             # Fallback to general rules if model fails to load
             import random
@@ -412,49 +416,68 @@ class OverallAnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user
-        # Get or generate summary
-        summary_obj = HealthSummary.objects.filter(user=user).first()
-        if not summary_obj:
-            # Generate one on the fly if it doesn't exist yet
-            try:
-                generate_overall_health_summary(user)
-                summary_obj = HealthSummary.objects.filter(user=user).first()
-            except Exception as e:
-                print(f"Error generating summary on get: {e}")
-        
-        summary_text = summary_obj.summary_text if summary_obj else "Upload reports and sync smartwatch data to generate your overall health and disease summary."
-        updated_at = summary_obj.updated_at.isoformat() if summary_obj else None
-        
-        # Get latest risk prediction for each of the 12 diseases
-        diseases = [
-            'General', 'Hypertension Risk', 'Cardiovascular Risk', 'Sleep Apnea Risk',
-            'Stress / Anxiety', 'Arrhythmia / AFib Risk', 'Obesity Risk', 'Diabetes Risk',
-            'Fatigue Detection', 'Depression Risk', 'Fall Detection for Elderly', 'Sedentary Lifestyle Risk'
-        ]
-        
-        disease_risks = []
-        for disease_name in diseases:
-            latest_pred = RiskPrediction.objects.filter(user=user, disease_name=disease_name).order_by('-prediction_date').first()
-            if latest_pred:
-                disease_risks.append({
-                    'disease_name': disease_name,
-                    'risk_level': latest_pred.risk_level,
-                    'risk_percentage': round(latest_pred.risk_percentage, 2),
-                    'prediction_date': latest_pred.prediction_date.isoformat()
-                })
-            else:
-                # Provide a default LOW risk placeholder if no prediction exists yet
-                disease_risks.append({
-                    'disease_name': disease_name,
-                    'risk_level': 'LOW',
-                    'risk_percentage': 0.0,
-                    'prediction_date': None
-                })
-                
-        return Response({
-            'overall_summary': summary_text,
-            'updated_at': updated_at,
-            'disease_risks': disease_risks
-        })
+        import traceback
+        try:
+            user = request.user
+            # Get or generate summary
+            summary_obj = HealthSummary.objects.filter(user=user).first()
+            if not summary_obj:
+                # Generate one on the fly if it doesn't exist yet
+                try:
+                    generate_overall_health_summary(user)
+                    summary_obj = HealthSummary.objects.filter(user=user).first()
+                except Exception as e:
+                    print(f"Error generating summary on get: {e}")
+                    traceback.print_exc()
+            
+            summary_text = summary_obj.summary_text if summary_obj else "Upload reports and sync smartwatch data to generate your overall health and disease summary."
+            updated_at = summary_obj.updated_at.isoformat() if summary_obj else None
+            
+            # Get latest risk prediction for each of the 12 diseases
+            diseases = [
+                'General', 'Hypertension Risk', 'Cardiovascular Risk', 'Sleep Apnea Risk',
+                'Stress / Anxiety', 'Arrhythmia / AFib Risk', 'Obesity Risk', 'Diabetes Risk',
+                'Fatigue Detection', 'Depression Risk', 'Fall Detection for Elderly', 'Sedentary Lifestyle Risk'
+            ]
+            
+            disease_risks = []
+            for disease_name in diseases:
+                try:
+                    latest_pred = RiskPrediction.objects.filter(user=user, disease_name=disease_name).order_by('-prediction_date').first()
+                    if latest_pred:
+                        disease_risks.append({
+                            'disease_name': disease_name,
+                            'risk_level': latest_pred.risk_level,
+                            'risk_percentage': round(latest_pred.risk_percentage, 2),
+                            'prediction_date': latest_pred.prediction_date.isoformat()
+                        })
+                    else:
+                        # Provide a default LOW risk placeholder if no prediction exists yet
+                        disease_risks.append({
+                            'disease_name': disease_name,
+                            'risk_level': 'LOW',
+                            'risk_percentage': 0.0,
+                            'prediction_date': None
+                        })
+                except Exception as e:
+                    print(f"Error fetching prediction for {disease_name}: {e}")
+                    disease_risks.append({
+                        'disease_name': disease_name,
+                        'risk_level': 'LOW',
+                        'risk_percentage': 0.0,
+                        'prediction_date': None
+                    })
+                    
+            return Response({
+                'overall_summary': summary_text,
+                'updated_at': updated_at,
+                'disease_risks': disease_risks
+            })
+        except Exception as e:
+            traceback.print_exc()
+            return Response({
+                'overall_summary': f'Error generating analytics: {str(e)}. Please try again.',
+                'updated_at': None,
+                'disease_risks': []
+            }, status=200)  # Return 200 with error message so frontend can display it
 

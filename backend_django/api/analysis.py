@@ -155,14 +155,14 @@ def run_all_disease_predictions(user):
     
     predictions = {}
     for disease_name, model_filename in diseases:
-        model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ml_model', model_filename)
+        model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'ml_model', model_filename)
         try:
             model = joblib.load(model_path)
             risk_level = model.predict([features])[0]
             probs = model.predict_proba([features])[0]
             
             class_idx = list(model.classes_).index(risk_level)
-            risk_percentage = min(100.0, max(0.0, probs[class_idx] * 100))
+            risk_percentage = float(min(100.0, max(0.0, probs[class_idx] * 100)))
         except Exception as e:
             # Fallback to deterministic rules if models fail to load to keep things consistent
             score = 0
